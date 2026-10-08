@@ -1,7 +1,7 @@
 # Optional local dictation
 
 Dictation puts recognized text into the focused terminal or text field.
-Mr. Mak's voice assistant instead carries on a conversation and can call tools.
+CyberStudio's voice assistant instead carries on a conversation and can call tools.
 You can use either, both or neither.
 
 [Wispr Local](https://github.com/nsoth/wispr-local) is one Windows option built

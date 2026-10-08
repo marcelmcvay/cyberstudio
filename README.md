@@ -1,21 +1,21 @@
-# Mr. Mak Workspace
+# CyberStudio
 
 Your agents do the work. You keep the useful parts in view.
 
-Mr. Mak gives you two connected windows: real CLI chats on the left, and a
+CyberStudio gives you two connected windows: real CLI chats on the left, and a
 Workspace for projects, research, images and files. Keep both open, or minimize
 the Workspace while an agent helps you in Blender, a game engine or your browser.
 
 **Prerequisite: install and configure Codex CLI, Claude Code CLI or OpenCode
-before setting up Mr. Mak.** You need at least one. They can run side by side
-and are separate installations, not bundled with Mr. Mak.
+before setting up CyberStudio.** You need at least one. They can run side by side
+and are separate installations, not bundled with CyberStudio.
 
 - [Install Codex CLI](https://developers.openai.com/codex/cli)
 - [Install Claude Code CLI](https://code.claude.com/docs/en/setup)
 - [Install OpenCode](https://opencode.ai/docs/)
 
 **Do I need an API key?** No, not for Claude Code or Codex chats when you sign
-in with an eligible subscription. Mr. Mak runs the real CLI with its existing
+in with an eligible subscription. CyberStudio runs the real CLI with its existing
 login: Claude Pro/Max can use Claude Code, and Codex can use ChatGPT subscription
 access. Normal plan limits still apply. API billing is an alternative, not a
 requirement. See [Claude authentication](https://code.claude.com/docs/en/authentication)
@@ -29,7 +29,7 @@ The optional voice coordinator specifically requires **Codex CLI** and your own
 **OpenAI API key**. Voice API usage is billed separately. Leave voice off to use
 subscription-backed CLI chats without an API key.
 
-![Mr. Mak Workspace home with project cards and the Files tree open](docs/assets/workspace-overview.png)
+![CyberStudio home with project cards and the Files tree open](docs/assets/workspace-overview.png)
 
 ## Everyday tools
 
@@ -59,7 +59,7 @@ Use **Use this template** on GitHub to create your own repository, then clone it
 into a folder you control. Open that folder in your installed Codex CLI,
 Claude Code CLI or OpenCode and paste:
 
-> Set up this Mr. Mak Workspace repository on my computer. Read AGENTS.md and
+> Set up this CyberStudio repository on my computer. Read AGENTS.md and
 > docs/getting-started.md, check the prerequisites, and help me run the Windows
 > desktop app. Use my own CLI accounts. Leave optional voice, paid providers,
 > MCP connections and the Win-key shortcut off until I choose to connect them.
@@ -72,7 +72,7 @@ your own agent accounts and any services you want to use.
 ## Run the desktop app
 
 On Windows, download the installer from [Releases](https://github.com/witnesstodark/mr-mak-workspace/releases/latest),
-install **Mr. Mak Workspace**, then open **Start Mr. Mak.cmd** in your cloned
+install **CyberStudio**, then open **Start CyberStudio.cmd** in your cloned
 repository. On Linux, build the Tauri desktop target after installing the Node,
 Rust and WebKitGTK prerequisites, then launch the resulting AppImage/deb install
 with `--repo /path/to/your/workspace`. On both systems, use **+** in Chats to
@@ -81,8 +81,8 @@ open an installed CLI and sign in with your own account.
 The installer includes the local Node service. It does not include Codex,
 Claude Code, OpenCode, Kimi, Blender, Python or provider accounts.
 
-**Already using Mr. Mak?** Read the [0.4.19 update notes](CHANGELOG.md) for
-Talk to Mak image attachments, multiline messages and optional asset manifests.
+**Already using CyberStudio?** Read the [0.4.19 update notes](CHANGELOG.md) for
+Talk to Cy image attachments, multiline messages and optional asset manifests.
 Follow the
 [update guide](docs/updating.md) to update the app and add skills to your existing
 repository without replacing your projects.

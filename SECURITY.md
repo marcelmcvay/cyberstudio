@@ -16,9 +16,9 @@ underlying vulnerability has been resolved.
 
 ## Local service and permissions
 
-Mr. Mak runs on the current user's machine and starts CLI tools as that user.
+CyberStudio runs on the current user's machine and starts CLI tools as that user.
 The CLI's own permission and sandbox settings remain important. Bypass is an
-explicit choice and is off by default. Mr. Mak is not an operating-system
+explicit choice and is off by default. CyberStudio is not an operating-system
 sandbox for arbitrary programs running under the same account.
 
 The desktop service listens on loopback. Do not expose it through a public

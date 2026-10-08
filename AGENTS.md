@@ -1,4 +1,4 @@
-# Mr. Mak Workspace
+# CyberStudio
 
 This repository is a desktop workspace and a starter context for its owner.
 Read `context/preferences.md`, `context/goals.md`, and the relevant project before

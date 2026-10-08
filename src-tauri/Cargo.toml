@@ -1,8 +1,8 @@
 [package]
 name = "mrmak-workspace"
 version = "0.4.19"
-description = "Mr. Mak workspace and independent agent terminals"
-authors = ["Mr. Mak Workspace contributors"]
+description = "CyberStudio workspace and independent agent terminals"
+authors = ["CyberStudio contributors"]
 edition = "2021"
 rust-version = "1.77.2"
 

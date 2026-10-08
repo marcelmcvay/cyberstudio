@@ -38,7 +38,7 @@ run(['ci', '--omit=dev'], path.join(runtime, 'service'));
 await cp(path.join(repo, 'dist'), path.join(runtime, 'ui'), { recursive: true });
 // Vite deliberately does not copy the enormous workspace junction. Bundle only UI assets.
 try { await access(path.join(repo, 'public', 'assets')); await cp(path.join(repo, 'public', 'assets'), path.join(runtime, 'ui', 'assets'), { recursive: true }); } catch { /* Optional brand assets. */ }
-await writeFile(path.join(runtime, 'README.txt'), `Mr. Mak local runtime for ${process.platform}. User repositories, keys and CLI logins are not included.\n`);
+await writeFile(path.join(runtime, 'README.txt'), `CyberStudio local runtime for ${process.platform}. User repositories, keys and CLI logins are not included.\n`);
 const licenseCandidates = [
   path.join(path.dirname(process.execPath), 'LICENSE'),
   path.join(path.dirname(path.dirname(process.execPath)), 'LICENSE'),

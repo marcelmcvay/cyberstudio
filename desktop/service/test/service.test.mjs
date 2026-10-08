@@ -16,7 +16,7 @@ async function fixture() {
   await mkdir(path.join(repo, 'workspace', 'A space'), { recursive: true });
   await mkdir(path.join(repo, 'inbox')); await mkdir(path.join(repo, 'projects'));
   await mkdir(path.join(repo, 'ui'));
-  await writeFile(path.join(repo, 'ui', 'index.html'), '<html>Mr. Mak UI</html>');
+  await writeFile(path.join(repo, 'ui', 'index.html'), '<html>CyberStudio UI</html>');
   await writeFile(path.join(repo, 'workspace', 'workspace.json'), JSON.stringify({ entities: [] }));
   await writeFile(path.join(repo, 'workspace', 'A space', 'report.html'), '<html><img src="image.bin"></html>');
   await writeFile(path.join(repo, 'workspace', 'A space', 'image.bin'), Buffer.from('0123456789'));

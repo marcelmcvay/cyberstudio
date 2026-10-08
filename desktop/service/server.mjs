@@ -86,7 +86,7 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
         case 'pin_chat': return sessions.pin(args.id, args.pinned);
         case 'open_chat': {
           if (args.bypass != null && typeof args.bypass !== 'boolean') throw new Error('Choose a valid chat permission setting.');
-          if (args.bypass === true && settings.defaultBypass !== true) throw new Error('To enable bypass, choose it yourself in New chat or Settings. Mr. Mak cannot raise the selected permission level.');
+          if (args.bypass === true && settings.defaultBypass !== true) throw new Error('To enable bypass, choose it yourself in New chat or Settings. Cy cannot raise the selected permission level.');
           const session = await sessions.create({ ...args, name: taskTitle(args.name), effort: taskEffort(latestRequest, args.effort), bypass: args.bypass === false ? false : settings.defaultBypass === true });
           focus(session.id); return session;
         }
@@ -156,7 +156,7 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
   function authorize(request) {
     if (request.headers.host !== new URL(origin).host) throw Object.assign(new Error('Unexpected host'), { status: 403 });
     if (request.headers.origin && request.headers.origin !== origin) throw Object.assign(new Error('Unexpected origin'), { status: 403 });
-    if (!equalSecret(request.headers.authorization, `Bearer ${token}`)) throw Object.assign(new Error('Open Mr. Mak from its desktop launcher'), { status: 401 });
+    if (!equalSecret(request.headers.authorization, `Bearer ${token}`)) throw Object.assign(new Error('Open CyberStudio from its desktop launcher'), { status: 401 });
   }
   const server = http.createServer(async (request, response) => {
     try {

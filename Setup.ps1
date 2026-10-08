@@ -13,7 +13,7 @@ try {
   $taskCodex = Get-Command codex -ErrorAction SilentlyContinue
   $taskClaude = Get-Command claude -ErrorAction SilentlyContinue
   $taskOpenCode = Get-Command opencode -ErrorAction SilentlyContinue
-  Write-Host 'Mr. Mak Workspace setup'
+  Write-Host 'CyberStudio setup'
   Write-Host ('Node: ' + [bool]$taskNode + ' | npm: ' + [bool]$taskNpm + ' | Rust (desktop source build only): ' + [bool]$taskCargo)
   Write-Host ('Codex CLI: ' + [bool]$taskCodex + ' | Claude Code CLI: ' + [bool]$taskClaude + ' | OpenCode: ' + [bool]$taskOpenCode)
   if (-not $taskCodex -and -not $taskClaude -and -not $taskOpenCode) {
@@ -39,6 +39,6 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Desktop build failed. Keep the output and ask your setup agent to inspect it.' }
     $taskBundle = Join-Path $taskRoot 'src-tauri/target/release/bundle/nsis'
     Write-Host ('Installer ready in ' + $taskBundle)
-    Write-Host 'Run the installer, then double-click Start Mr. Mak.cmd.'
+    Write-Host 'Run the installer, then double-click Start CyberStudio.cmd.'
   }
 } finally { Pop-Location }

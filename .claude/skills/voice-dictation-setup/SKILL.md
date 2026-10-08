@@ -6,7 +6,7 @@ description: Help configure optional local Whisper dictation into terminals and 
 # Voice dictation setup
 
 Read [the setup note](../../../knowledge/voice-dictation.md) and the chosen
-tool's current upstream instructions. Dictation is independent of Mr. Mak's
+tool's current upstream instructions. Dictation is independent of CyberStudio's
 conversational voice assistant. Keep the two workflows distinct.
 
 Check the operating system, microphone, language and available hardware. Choose
@@ -22,4 +22,4 @@ the next recording starts reliably after a failure.
 Leave optional cloud formatting disabled unless requested. If enabled, explain
 which text goes to the selected provider and use the user's own credentials.
 Store only reusable setup notes in this project, not voice history or account
-settings. Do not restart Mr. Mak to configure a separate dictation application.
+settings. Do not restart CyberStudio to configure a separate dictation application.

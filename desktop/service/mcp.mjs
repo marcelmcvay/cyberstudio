@@ -160,7 +160,7 @@ export class McpInventory {
   }
   async list() { return (await this.scan()).public; }
   async check(id) {
-    if (this.closed) throw new Error('Mr. Mak is closing.');
+    if (this.closed) throw new Error('CyberStudio is closing.');
     if (this.pending.has(id)) return this.pending.get(id).promise;
     if (this.pending.size >= 2) throw new Error('Two connection checks are running. Wait for one to finish.');
     const entry = (await this.scan()).raw.get(id);

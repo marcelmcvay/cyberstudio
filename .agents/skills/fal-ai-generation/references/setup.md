@@ -1,7 +1,7 @@
 # Connect fal.ai in another project
 
 Copy the complete `fal-ai-generation` folder into that project's Claude or Codex
-skill directory. Keep one canonical copy if both agents use it. No Mr. Mak
+skill directory. Keep one canonical copy if both agents use it. No CyberStudio
 repository, original account or private project folder is required.
 
 ## Account and MCP
@@ -12,7 +12,7 @@ Connect a Streamable HTTP MCP server at `https://mcp.fal.ai/mcp`, with an
 `Authorization` header whose value is `Bearer <your key>`.
 
 Use your client's environment/header support so a real key is not committed.
-In Mr. Mak, the project `.env` can contain `MRMAK_MCP_FAL_AUTHORIZATION` with the
+In CyberStudio, the project `.env` can contain `MRMAK_MCP_FAL_AUTHORIZATION` with the
 complete Bearer value; new agent sessions receive this explicitly scoped value.
 Claude's shared `.mcp.json` references `${MRMAK_MCP_FAL_AUTHORIZATION}` and Codex's
 project config uses `env_http_headers`. A standalone terminal must load the
@@ -36,7 +36,7 @@ python scripts/fal_job.py --help
 ```
 
 Set `FAL_KEY` in the environment or in your project's ignored `.env`. The helper
-also understands legacy `FALAI_KEY` and Mr. Mak's scoped MCP Bearer variable.
+also understands legacy `FALAI_KEY` and CyberStudio's scoped MCP Bearer variable.
 Choose a file explicitly with `--env /path/to/project/.env`; otherwise only the
 current working directory's `.env` is considered. Credentials are never printed.
 

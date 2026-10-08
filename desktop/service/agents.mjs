@@ -35,7 +35,7 @@ export function codexBinary(env = process.env) {
   if (!isWindows) {
     const executable = commandPath('codex', env);
     if (executable) return { file: executable, args: [] };
-    throw new Error('Codex CLI is not installed. Install it and sign in once to use Mr. Mak.');
+    throw new Error('Codex CLI is not installed. Install it and sign in once to use CyberStudio.');
   }
   const npmRoot = path.join(env.APPDATA || '', 'npm', 'node_modules', '@openai');
   const triple = process.arch === 'arm64' ? 'aarch64-pc-windows-msvc' : 'x86_64-pc-windows-msvc';
@@ -50,7 +50,7 @@ export function codexBinary(env = process.env) {
   if (existsSync(js)) return { file: process.execPath, args: [js] };
   const executable = commandPath('codex', env);
   if (executable && !/\.(cmd|bat|ps1)$/i.test(executable)) return { file: executable, args: [] };
-  throw new Error('Codex CLI is not installed. Install it and sign in once to use Mr. Mak.');
+  throw new Error('Codex CLI is not installed. Install it and sign in once to use CyberStudio.');
 }
 
 export function terminalCommand(agent, { bypass = false, resumeId, nativeId, effort, opencodeMajor = 1 } = {}) {

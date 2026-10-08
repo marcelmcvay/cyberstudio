@@ -1,5 +1,5 @@
 """
-Shared HTML report style for all Mr. Mak reports.
+Shared HTML report style for all CyberStudio reports.
 
 "Luminous Mak" design system — tokens mirrored from src/styles/tokens.css:
 near-black bg (#0a0a0c) with a soft pink/purple aura, glass cards with

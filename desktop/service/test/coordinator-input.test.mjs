@@ -50,7 +50,7 @@ test('coordinator images must be actual, bounded images inside the upload folder
   const outside = await mkdtemp(path.join(os.tmpdir(), 'mrmak-outside-image-'));
   await writeFile(path.join(outside, 'secret.png'), png);
   const alias = path.join(repo, 'inbox/attachments/linked'); await symlink(outside, alias, process.platform === 'win32' ? 'junction' : 'dir');
-  await assert.rejects(attachments.coordinatorImages([path.join(alias, 'secret.png')]), /uploaded through Mr. Mak/);
+  await assert.rejects(attachments.coordinatorImages([path.join(alias, 'secret.png')]), /uploaded through CyberStudio/);
   const handle = await open(image.path, 'r+'); await handle.truncate(MAX_IMAGE_BYTES + 1); await handle.close();
   await assert.rejects(attachments.coordinatorImages([image.path]), /smaller than 25 MB/);
 });

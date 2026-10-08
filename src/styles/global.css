@@ -117,7 +117,7 @@ button:focus-visible {
   border-color: rgba(240, 160, 176, 0.45);
 }
 
-/* the floating Mr. Mak nose that brings the menu back — only when collapsed */
+/* the floating CyberStudio nose that brings the menu back — only when collapsed */
 .sidebar-reopen {
   position: absolute;
   top: 8px;
@@ -708,7 +708,7 @@ button:focus-visible {
   transform: none;
 }
 
-/* ─── Mr. Mak logo container ─── */
+/* ─── CyberStudio logo container ─── */
 .mak-logo { flex-shrink: 0; }
 
 /* ─── Scrollbars ─── */

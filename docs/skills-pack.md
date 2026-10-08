@@ -1,7 +1,7 @@
-# Mr. Mak agent skills
+# CyberStudio agent skills
 
 This pack contains 20 project-local workflows for Codex CLI and Claude Code.
-You can use them in a game or creative project without installing Mr. Mak's
+You can use them in a game or creative project without installing CyberStudio's
 desktop app. Sign in to at least one of those CLIs first.
 
 Read `docs/skills.md` for the complete index. The six new game workflows cover

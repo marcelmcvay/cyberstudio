@@ -131,7 +131,7 @@ def main():
         print(f"Verified {manifest['version']}: {len(manifest['skills'])} skills, {len(manifest['files'])} payload files")
         return
     version = json.loads((ROOT / 'package.json').read_text(encoding='utf-8'))['version']
-    output = (args.output or ROOT / '.cache/releases' / f'Mr-Mak-Skills-{version}.zip').resolve()
+    output = (args.output or ROOT / '.cache/releases' / f'CyberStudio-Skills-{version}.zip').resolve()
     if output.suffix.lower() != '.zip':
         parser.error('--output must name a ZIP file')
     payload = collect()

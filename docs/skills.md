@@ -79,6 +79,6 @@ A skill does not authenticate a provider or install a tool. Follow its setup
 references and bring your own account. Credentials and raw paid-job receipts
 must stay outside a shared skill pack.
 
-For an existing Mr. Mak installation, see the
+For an existing CyberStudio installation, see the
 [update guide](https://github.com/witnesstodark/mr-mak-workspace/blob/main/docs/updating.md). Installing the
 desktop update alone does not put new skills into your repository.

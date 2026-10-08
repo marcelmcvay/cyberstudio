@@ -41,9 +41,9 @@ export class Attachments {
     if (!within(repo, root)) throw new Error('The attachments folder must stay inside MR-MAK.');
     const result = [];
     for (const file of files) {
-      if (typeof file !== 'string' || !path.isAbsolute(file) || /[\x00-\x1f\x7f]/.test(file)) throw new Error('Choose an image uploaded through Mr. Mak.');
+      if (typeof file !== 'string' || !path.isAbsolute(file) || /[\x00-\x1f\x7f]/.test(file)) throw new Error('Choose an image uploaded through CyberStudio.');
       const actual = await realpath(file);
-      if (!within(root, actual)) throw new Error('Choose an image uploaded through Mr. Mak.');
+      if (!within(root, actual)) throw new Error('Choose an image uploaded through CyberStudio.');
       const handle = await open(actual, 'r');
       try {
         const info = await handle.stat();

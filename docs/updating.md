@@ -6,13 +6,13 @@ context, credentials or agent conversations.
 
 ## Application
 
-1. Finish active agent tasks, then choose Quit from Mr. Mak's tray menu.
-2. Install **Mr. Mak Workspace 0.4.19** for Windows x64.
+1. Finish active agent tasks, then choose Quit from CyberStudio's tray menu.
+2. Install **CyberStudio 0.4.19** for Windows x64.
 3. Open the same repository you were using before. Your cards, settings and
    History remain in that folder.
 
 The History fix can reconnect a Codex conversation whose original native record
-still exists but whose ID was not saved by Mr. Mak. If that native history was
+still exists but whose ID was not saved by CyberStudio. If that native history was
 deleted or belongs to another account, the update cannot recreate it. Use
 New chat > Resume with a known native ID when importing an existing CLI chat.
 Saved terminal screens are retained when automatic recovery is not possible.
@@ -28,7 +28,7 @@ visual design, merge its updated source or add `data-mak-theme="custom"` to the
 root element to preserve its palette. See [customization](customization.md).
 
 Version 0.4.16 added **OpenCode** to New chat, History and the default-agent
-setting. Install and configure OpenCode separately, then reopen Mr. Mak if the
+setting. Install and configure OpenCode separately, then reopen CyberStudio if the
 command was just added to PATH. Existing Codex and Claude chats keep their login
 and settings. No API key is needed for their subscription-backed CLI chats;
 voice remains optional and uses a separately billed OpenAI API connection.

@@ -1,4 +1,4 @@
-# Mr. Mak Workspace
+# CyberStudio
 
 Read [AGENTS.md](AGENTS.md) for the repository rules and
 [getting started](docs/getting-started.md) for setup.

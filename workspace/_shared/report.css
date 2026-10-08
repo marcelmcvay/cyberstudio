@@ -1,4 +1,4 @@
-/* Mr. Mak report system. Source shared by existing reports and report_style.py. */
+/* CyberStudio report system. Source shared by existing reports and report_style.py. */
 :root{--mak-bg:#101115;--mak-surface:#18191f;--mak-border:#ffffff13;--mak-text:#d3d0d9;--mak-muted:#a29baa;--mak-accent:#f0a0b0;--mak-font:Inter,'Segoe UI',system-ui,sans-serif}
 html[data-mak-report]{background:#101115;color-scheme:dark}
 html[data-mak-report],html[data-mak-report] *{scrollbar-color:#514c59 #111217;scrollbar-width:thin}

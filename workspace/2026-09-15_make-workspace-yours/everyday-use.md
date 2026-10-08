@@ -1,4 +1,4 @@
-# Welcome to Mr. Mak Workspace
+# Welcome to CyberStudio
 
 Work with your agents in Chats. Read, compare and keep their results in Workspace.
 Your project folders connect the two. You can use the Workspace without reading
@@ -73,11 +73,11 @@ complete modules into your project, and install only their required dependencies
 Use your own provider accounts and keys. A skill does not include someone else's
 subscription, running terminal, API balance or signed-in application.
 
-## Talking to Mr. Mak
+## Talking to Cy
 
 Press the nose button to start or stop a voice conversation. Ask for quick actions
 such as opening a chat, finding a card, checking recent work or changing a card's
-status. For a larger task, ask Mr. Mak to create an agent conversation and follow
+status. For a larger task, ask Cy to create an agent conversation and follow
 its result. You can continue working directly in any terminal.
 
 Voice uses the configured API connection. Terminal agents use their own installed
@@ -94,7 +94,7 @@ The current choices are visible in Settings and in the agent or provider setup.
 | Ctrl+V in a chat | Paste text or a clipboard screenshot |
 | Ctrl+S while editing Markdown | Save the document |
 | Escape in an image preview | Close the enlarged image |
-| Optional Win-key recall | Bring back open Mr. Mak windows; configurable in Settings |
+| Optional Win-key recall | Bring back open CyberStudio windows; configurable in Settings |
 | Ctrl+Esc | Open Windows Start |
 
 Settings also contains terminal text size and appearance, the default agent,

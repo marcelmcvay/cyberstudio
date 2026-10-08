@@ -90,7 +90,7 @@ mod tests {
                 let mut request = [0; 4096];
                 let count = stream.read(&mut request).unwrap();
                 assert!(String::from_utf8_lossy(&request[..count]).contains("GET /mrmak-browser-check?from=chat&check=links "));
-                let body = "<!doctype html><html lang='en'><meta charset='utf-8'><title>Mr. Mak browser check</title><body style='background:#101115;color:#eee;font:20px system-ui;padding:48px'><h1>Browser links work.</h1><p>Mr. Mak opened your default browser. You can close this test tab.</p></body></html>";
+                let body = "<!doctype html><html lang='en'><meta charset='utf-8'><title>CyberStudio browser check</title><body style='background:#101115;color:#eee;font:20px system-ui;padding:48px'><h1>Browser links work.</h1><p>CyberStudio opened your default browser. You can close this test tab.</p></body></html>";
                 write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).unwrap();
                 break;
             }

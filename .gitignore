@@ -26,6 +26,7 @@ public/workspace
 *.log
 
 # Local inputs and jobs
+_gen/
 inbox/*
 !inbox/.gitkeep
 **/job.json

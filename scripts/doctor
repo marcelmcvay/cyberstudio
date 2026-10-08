@@ -1,0 +1,217 @@
+#!/usr/bin/env node
+// CyberStudio doctor. One line per check. Exit 1 if anything is red.
+// Built-ins only. Never prints secret values.
+import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { createConnection } from 'node:net';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { KIT_ROOT, loadEnv, parseEnv, projectRoot, envFiles } from './lib/env.mjs';
+import { monthToDate } from './ledger.mjs';
+
+loadEnv();
+
+const useColor = process.stdout.isTTY && !('NO_COLOR' in process.env) && process.env.TERM !== 'dumb';
+const paint = (code, s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : s);
+const LEVEL = {
+  green: { dot: paint('32', '●'), tag: 'ok  ' },
+  yellow: { dot: paint('33', '●'), tag: 'warn' },
+  red: { dot: paint('31', '●'), tag: 'FAIL' },
+};
+const results = [];
+let section = '';
+
+function report(level, name, detail = '') {
+  results.push(level);
+  const tag = useColor ? '' : `${LEVEL[level].tag} `;
+  console.log(`${LEVEL[level].dot} ${tag}${name.padEnd(26)} ${detail}`);
+}
+function heading(title) {
+  section = title;
+  console.log(`\n${paint('1', section)}`);
+}
+
+function run(cmd, args = [], { timeout = 5000, cwd = KIT_ROOT } = {}) {
+  const r = spawnSync(cmd, args, { encoding: 'utf8', timeout, cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+  const out = `${r.stdout || ''}${r.stderr || ''}`.trim();
+  return {
+    ok: !r.error && r.status === 0,
+    missing: r.error?.code === 'ENOENT',
+    timedOut: r.error?.code === 'ETIMEDOUT' || r.signal === 'SIGTERM',
+    status: r.status,
+    stdout: (r.stdout || '').trim(),
+    out,
+    first: out.split('\n').find((l) => l.trim()) || '',
+  };
+}
+
+function versionOf(text) {
+  const m = text.match(/\d+\.\d+(?:\.\d+)?/);
+  return m ? m[0] : text.slice(0, 60);
+}
+
+function tool(name, cmd, args = ['--version'], { required = true } = {}) {
+  const r = run(cmd, args);
+  if (r.ok) { report('green', name, versionOf(r.first)); return r; }
+  if (r.missing) report(required ? 'red' : 'yellow', name, 'not found on PATH');
+  else if (r.timedOut) report('yellow', name, 'timed out');
+  else report(required ? 'red' : 'yellow', name, r.first || `exit ${r.status}`);
+  return r;
+}
+
+function readJson(file) {
+  try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return undefined; }
+}
+
+function portOpen(host, port, ms = 800) {
+  return new Promise((res) => {
+    const s = createConnection({ host, port });
+    const done = (v) => { s.destroy(); res(v); };
+    s.setTimeout(ms, () => done(false));
+    s.once('connect', () => done(true));
+    s.once('error', () => done(false));
+  });
+}
+
+async function main() {
+  console.log(paint('1', 'CyberStudio doctor') + `  kit ${KIT_ROOT}  project ${projectRoot()}`);
+
+  // --- Core
+  heading('Core');
+  tool('git', 'git');
+  const lfs = tool('git-lfs', 'git', ['lfs', 'version']);
+  if (lfs.ok) {
+    const filter = run('git', ['config', '--get', 'filter.lfs.process']);
+    const hooksDir = run('git', ['rev-parse', '--git-path', 'hooks']);
+    let hooked = false;
+    if (hooksDir.ok) {
+      const pp = join(KIT_ROOT, hooksDir.stdout, 'pre-push');
+      const abs = existsSync(pp) ? pp : join(hooksDir.stdout, 'pre-push');
+      try { hooked = readFileSync(abs, 'utf8').includes('git lfs') || readFileSync(abs, 'utf8').includes('git-lfs'); } catch { /* none */ }
+    }
+    if (filter.ok && hooked) report('green', 'git-lfs config', 'filters + hooks installed');
+    else if (filter.ok) report('yellow', 'git-lfs config', 'filters set, repo hooks missing. Run `git lfs install` in the repo');
+    else report('red', 'git-lfs config', 'filters missing. Run `git lfs install`');
+  }
+  const major = Number(process.versions.node.split('.')[0]);
+  report(major >= 20 ? 'green' : 'red', 'node', `${process.versions.node}${major >= 20 ? '' : ' (need 20+)'}`);
+  tool('uv', 'uv');
+  tool('uvx', 'uvx');
+  tool('brew', 'brew', ['--version'], { required: false });
+
+  // --- Blender
+  heading('Blender');
+  const bl = run('blender', ['--version'], { timeout: 8000 });
+  let blVer = '';
+  if (bl.ok) {
+    const m = bl.out.match(/Blender (\d+\.\d+(?:\.\d+)?)([^\n]*)/);
+    blVer = m ? m[1] : '';
+    report('green', 'blender', m ? `${m[1]}${m[2]}`.trim() : bl.first);
+  } else {
+    report('red', 'blender', bl.missing ? 'not found on PATH. `brew install --cask blender`' : bl.first || `exit ${bl.status}`);
+  }
+  const mm = blVer.split('.').slice(0, 2).join('.');
+  if (mm) {
+    const base = join(homedir(), 'Library', 'Application Support', 'Blender', mm);
+    const addons = join(base, 'scripts', 'addons');
+    const hit = ['blender_mcp.py', 'blender_mcp', 'addon.py'].map((f) => join(addons, f)).find((f) => existsSync(f));
+    if (hit) {
+      let enabled = false;
+      try { enabled = readFileSync(join(base, 'config', 'userpref.blend')).includes('blender_mcp'); } catch { /* no prefs */ }
+      report(enabled ? 'green' : 'yellow', 'blender MCP add-on', enabled ? `${hit.replace(homedir(), '~')} (enabled)` : `${hit.replace(homedir(), '~')} (not seen in saved prefs. Enable it and save prefs)`);
+    } else {
+      report('red', 'blender MCP add-on', `not in ${addons.replace(homedir(), '~')}`);
+    }
+  }
+  const mcp = readJson(join(KIT_ROOT, '.mcp.json'));
+  const blServer = mcp?.mcpServers?.blender;
+  if (blServer) report('green', '.mcp.json blender', [blServer.command, ...(blServer.args || [])].join(' '));
+  else report('red', '.mcp.json blender', 'no `blender` server in .mcp.json');
+  const host = process.env.BLENDER_HOST || blServer?.env?.BLENDER_HOST || 'localhost';
+  const port = Number(process.env.BLENDER_PORT || blServer?.env?.BLENDER_PORT || 9876);
+  if (await portOpen(host, port)) report('green', 'blender MCP socket', `${host}:${port} listening`);
+  else report('yellow', 'blender MCP socket', `Blender not running (${host}:${port} closed). Open Blender to connect`);
+
+  // --- glTF
+  heading('glTF');
+  const gt = tool('gltf-transform', 'gltf-transform', ['--version']);
+  if (gt.ok) {
+    const v = run('gltf-transform', ['validate', '--help']);
+    report(v.ok ? 'green' : 'red', 'glTF validator', v.ok ? 'gltf-transform validate (Khronos glTF-Validator)' : v.first);
+  }
+
+  // --- Higgsfield
+  heading('Higgsfield');
+  const hf = run('higgsfield', ['--version']);
+  if (hf.ok) report('green', 'higgsfield CLI', versionOf(hf.first));
+  else report('red', 'higgsfield CLI', hf.missing ? 'not found. `brew install higgsfield`' : hf.first);
+  if (hf.ok) {
+    const st = run('higgsfield', ['account', 'status', '--json'], { timeout: 8000 });
+    if (st.ok) {
+      const j = (() => { try { return JSON.parse(st.stdout); } catch { return {}; } })();
+      const credits = j.credits ?? j.balance ?? j.available_credits;
+      report('green', 'higgsfield account', `signed in${credits !== undefined ? `, ${credits} credits` : ''}`);
+    } else {
+      const why = st.first.replace(/^Error:\s*/, '');
+      report('yellow', 'higgsfield account', `not ready (${why || 'no session'}). Run \`higgsfield auth login\``);
+    }
+  }
+  const settings = readJson(join(KIT_ROOT, '.claude', 'settings.json'));
+  if (settings?.enabledPlugins?.['higgsfield@higgsfield']) report('green', 'higgsfield skills', 'plugin higgsfield@higgsfield enabled');
+  else report('yellow', 'higgsfield skills', 'plugin higgsfield@higgsfield not enabled in .claude/settings.json');
+
+  // --- Tripo
+  heading('Tripo');
+  const tr = run('uv', ['run', '--quiet', join(KIT_ROOT, 'scripts', 'tripo', 'tripo.py'), 'check'], { timeout: 30000, cwd: projectRoot() });
+  if (tr.ok) report('green', 'tripo', tr.first);
+  else if (tr.status === 2) report('yellow', 'tripo', `SDK ok, no key. Paste TRIPO_API_KEY into .env`);
+  else if (tr.timedOut) report('yellow', 'tripo', 'check timed out (first uv run downloads the SDK). Run again');
+  else if (/failed to import|not found/i.test(tr.out)) report('red', 'tripo', tr.first);
+  else report('yellow', 'tripo', tr.out.split('\n').pop());
+
+  // --- Env
+  heading('Env');
+  const files = envFiles();
+  if (files.length) report('green', '.env', files.map((f) => f.replace(homedir(), '~')).join(', '));
+  else report('yellow', '.env', 'missing. `cp .env.example .env` and fill keys');
+  let slots = [];
+  try { slots = Object.keys(parseEnv(readFileSync(join(KIT_ROOT, '.env.example'), 'utf8'))); } catch { /* none */ }
+  const OPTIONAL = new Set(['CYBERSTUDIO_PROJECT_ROOT', 'FAL_KEY', 'DROPBOX_ACCESS_TOKEN', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'MRMAK_COORDINATOR_MODEL', 'BLENDER_HOST', 'BLENDER_PORT', 'CYBERSTUDIO_MONTHLY_CAP_USD', 'CYBERSTUDIO_WARN_PCT']);
+  const empty = slots.filter((k) => !process.env[k]);
+  const emptyNeeded = empty.filter((k) => !OPTIONAL.has(k));
+  const DEFAULTED = new Set(['BLENDER_HOST', 'BLENDER_PORT', 'CYBERSTUDIO_MONTHLY_CAP_USD', 'CYBERSTUDIO_WARN_PCT']);
+  const emptyOptional = empty.filter((k) => OPTIONAL.has(k) && !DEFAULTED.has(k));
+  if (emptyNeeded.length) report('yellow', 'env slots (M1)', `empty: ${emptyNeeded.join(', ')}`);
+  else report('green', 'env slots (M1)', 'all set');
+  if (emptyOptional.length) report('green', 'env slots (optional)', `empty: ${emptyOptional.join(', ')}`);
+
+  // --- Budget
+  heading('Budget');
+  try {
+    const m = monthToDate();
+    const detail = `${m.month} $${m.total_usd.toFixed(2)} of $${m.cap_usd.toFixed(2)} (${m.pct_of_cap}%)${m.rows ? `, ${m.rows} rows` : ', no spend yet'}`;
+    if (m.state === 'over') report('yellow', 'spend MTD', `${detail}. OVER soft cap`);
+    else if (m.state === 'warn') report('yellow', 'spend MTD', `${detail}. past ${m.warn_pct}%`);
+    else report('green', 'spend MTD', detail);
+  } catch (e) {
+    report('yellow', 'spend MTD', `ledger unreadable: ${e.message}`);
+  }
+
+  // --- Engines (ROG)
+  heading('Engines (ROG)');
+  const unityHub = existsSync('/Applications/Unity Hub.app');
+  report('yellow', 'Unity Hub', unityHub ? 'present on this Mac. Engine work runs on the ROG (M3)' : 'not on this Mac. Install on ROG (M3)');
+  let ue = [];
+  try { ue = readdirSync('/Users/Shared/Epic Games').filter((d) => /^UE_/.test(d) && statSync(join('/Users/Shared/Epic Games', d)).isDirectory()); } catch { /* none */ }
+  report('yellow', 'Unreal Engine', ue.length ? `${ue.join(', ')} on this Mac. Engine work runs on the ROG (M3)` : 'not on this Mac. Install on ROG (M3)');
+  const epic = existsSync('/Applications/Epic Games Launcher.app');
+  report(epic ? 'green' : 'yellow', 'Epic Games Launcher', epic ? 'present on this Mac' : 'not on this Mac');
+
+  const n = { green: 0, yellow: 0, red: 0 };
+  for (const l of results) n[l]++;
+  const overall = n.red ? 'red' : n.yellow ? 'yellow' : 'green';
+  console.log(`\n${LEVEL[overall].dot} ${n.green} green, ${n.yellow} yellow, ${n.red} red. ${n.red ? 'Fix the red lines.' : n.yellow ? 'Ready. Yellow lines are next steps.' : 'All green.'}`);
+  return n.red ? 1 : 0;
+}
+
+main().then((code) => { process.exitCode = code; }, (e) => { console.error(`doctor crashed: ${e.stack || e}`); process.exitCode = 1; });

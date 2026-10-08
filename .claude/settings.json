@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "higgsfield": {
+      "source": {
+        "source": "github",
+        "repo": "higgsfield-ai/skills"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "higgsfield@higgsfield": true
+  }
+}

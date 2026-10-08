@@ -4,6 +4,7 @@ Newest first. Date, decision, who decided, why.
 
 ## 2026-10-08
 
+- **Kit repo `marcelmcvay/cyberstudio` is public.** Marcel. Workspace setup only. No client material, no keys. VEC material lives in a separate private OCTO repo.
 - **Blender MCP pinned to `mcp-for-blender@2.1.9`, add-on vendored at the matching commit.** Producer. The PyPI package was renamed from `blender-mcp`. The add-on in `vendor/blender-mcp/` is byte-identical to the one bundled in 2.1.9 (protocol 13). Upgrades are deliberate, not drift.
 - **Blender MCP telemetry off.** Producer. `BLENDER_MCP_DISABLE_TELEMETRY=true` in `.mcp.json`. The add-on's data-sharing consent stays at its default (off). Client work flows through this server.
 - **Blender MCP registered in the kit `.mcp.json`, not via the vendor's `setup` installer.** Producer. The installer edits global client configs. The kit should carry its own config.

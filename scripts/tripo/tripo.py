@@ -140,6 +140,26 @@ async def safe_balance(client):
         return {"error": str(e)}
 
 
+def has_ipv4_route() -> bool:
+    """True if the OS has an IPv4 route out. UDP connect sends no packets."""
+    import socket
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("1.1.1.1", 53))
+        return True
+    except OSError:
+        return False
+
+
+def network_hint(error: str) -> str:
+    """Explain a DNS failure. Tripo's API hosts publish IPv4 (A) records only."""
+    if "nodename nor servname" not in error and "Name or service not known" not in error:
+        return ""
+    if not has_ipv4_route():
+        return " (no IPv4 connection; this network looks IPv6-only and Tripo's API is IPv4-only)"
+    return " (likely no IPv4 connection or DNS trouble on this network)"
+
+
 async def raw_task(client, task_id: str) -> dict | None:
     """Unparsed task JSON. The SDK Task dataclass drops unknown fields (possible credit info)."""
     try:
@@ -271,7 +291,7 @@ async def cmd_check(_args) -> int:
     async with TripoClient(api_key=key) as client:
         bal = await safe_balance(client)
     if "error" in bal:
-        print(f"key set. balance call failed: {bal['error']}", file=sys.stderr)
+        print(f"key set. balance call failed: {bal['error']}{network_hint(bal['error'])}", file=sys.stderr)
         return 1
     print(f"key ok. balance {bal['balance']} credits, frozen {bal['frozen']}")
     return 0

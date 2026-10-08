@@ -4,6 +4,8 @@ Newest first. Date, decision, who decided, why.
 
 ## 2026-10-08
 
+- **VEC project repo is `octopd/vec-factory-proto`, private, in the `octopd` org.** Marcel. Lives at `~/cyberstudio-projects/vec-factory-proto` and is the kit's `CYBERSTUDIO_PROJECT_ROOT`. Large files through Git LFS. `Octo-Marcel/VEC-Factory-Proto` is not used.
+- **App renamed to CyberStudio, assistant to Cy.** Marcel. Visible names only. Internal IDs (`com.mrmak.workspace`, `MRMAK_*`) and MIT attribution stay.
 - **M1 meshes go through Higgsfield's hosted Tripo (`tripo_h3_1_image_to_3d`), not the direct Tripo API.** Marcel's network has no IPv4 route and the Tripo API is IPv4-only. Higgsfield reaches over IPv6. 9 credits standard, 18 detailed (quoted 2026-10-08). Direct client `scripts/tripo/tripo.py` stays for the ROG or an IPv4 network. Fallback: Tripo web app (IPv6 via Cloudflare), manual import through `inbox/`. Same model family, so the mesh pipeline is unchanged.
 - **Kit repo `marcelmcvay/cyberstudio` is public.** Marcel. Workspace setup only. No client material, no keys. VEC material lives in a separate private OCTO repo.
 - **Blender MCP pinned to `mcp-for-blender@2.1.9`, add-on vendored at the matching commit.** Producer. The PyPI package was renamed from `blender-mcp`. The add-on in `vendor/blender-mcp/` is byte-identical to the one bundled in 2.1.9 (protocol 13). Upgrades are deliberate, not drift.

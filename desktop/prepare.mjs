@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, writeFile, access, realpath, rm } from 'node:fs/promises';
+import { cp, mkdir, readFile, writeFile, access, realpath, rm, chmod } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -35,6 +35,13 @@ await cp(serviceSource, path.join(runtime, 'service'), { recursive: true, filter
 // payload before npm can resolve an unrelated parent package.json.
 for (const file of ['package.json', 'package-lock.json', 'main.mjs', 'server.mjs']) await access(path.join(runtime, 'service', file));
 run(['ci', '--omit=dev'], path.join(runtime, 'service'));
+// node-pty's npm tarball ships the macOS spawn-helper without its execute bit,
+// which makes every terminal fail with "posix_spawnp failed".
+if (process.platform === 'darwin') {
+  for (const arch of ['darwin-arm64', 'darwin-x64']) {
+    await chmod(path.join(runtime, 'service', 'node_modules', 'node-pty', 'prebuilds', arch, 'spawn-helper'), 0o755).catch(() => {});
+  }
+}
 await cp(path.join(repo, 'dist'), path.join(runtime, 'ui'), { recursive: true });
 // Vite deliberately does not copy the enormous workspace junction. Bundle only UI assets.
 try { await access(path.join(repo, 'public', 'assets')); await cp(path.join(repo, 'public', 'assets'), path.join(runtime, 'ui', 'assets'), { recursive: true }); } catch { /* Optional brand assets. */ }

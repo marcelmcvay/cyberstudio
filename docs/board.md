@@ -24,7 +24,7 @@ Producer keeps this current. Status: `todo` · `doing` · `done` · `blocked (Ma
 | Item | Status | Notes |
 |---|---|---|
 | Agent team in `.claude/agents/` | todo | 7 roles from brief §5 |
-| CyberStudio on macOS (Tauri, 2 h box) | todo | Fallback: browser preview + Node PTY |
+| CyberStudio on macOS (Tauri, 2 h box) | done | Rust 1.99 (brew rustup). `npm run desktop:prepare` + `cargo build` in `src-tauri`; Claude Code chats work. Finder-launched `.app` may not find nvm `claude` (PATH) |
 | Re-skin, properties panel, GLB viewer, ledger widget, inbox/link intake | todo | |
 | Asset sidecar schema (extends `schema-v1.json`) | todo | |
 | `cyberstudio-3d` branch, `vec-factory` project | doing | Repo `octopd/vec-factory-proto` (private), cloned to `~/cyberstudio-projects/vec-factory-proto`, set as `CYBERSTUDIO_PROJECT_ROOT`. Branch not started |

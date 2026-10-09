@@ -27,7 +27,7 @@ Producer keeps this current. Status: `todo` · `doing` · `done` · `blocked (Ma
 | CyberStudio on macOS (Tauri, 2 h box) | done | Rust 1.99 (brew rustup). `npm run desktop:prepare` + `cargo build` in `src-tauri`; Claude Code chats work. Finder-launched `.app` may not find nvm `claude` (PATH) |
 | Re-skin, properties panel, GLB viewer, ledger widget, inbox/link intake | todo | |
 | Asset sidecar schema (extends `schema-v1.json`) | todo | |
-| `cyberstudio-3d` branch, `vec-factory` project | doing | Repo `octopd/vec-factory-proto` (private), cloned to `~/cyberstudio-projects/vec-factory-proto`, set as `CYBERSTUDIO_PROJECT_ROOT`. Branch not started |
+| `cyberstudio-3d` branch, `vec-factory` project | doing | VEC repo is now a CyberStudio Workspace (own `workspace.json`; kit skills and processes linked). Launch with `scripts/studio`. Branch not started |
 | ~5 AD images, 3 Tripo meshes, three.js scene | todo | Meshes via Higgsfield-hosted Tripo H3.1 |
 
 ## M2: Discrete plant scene

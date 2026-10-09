@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Launch CyberStudio on a project folder.
+#   scripts/studio            -> CYBERSTUDIO_PROJECT_ROOT from the kit's .env (else the kit)
+#   scripts/studio <folder>   -> that folder
+#   scripts/studio --kit      -> the kit itself (sample cards)
+# Project folders need workspace/workspace.json. They borrow the kit's skills
+# and processes through local links, which this script creates if missing.
+set -euo pipefail
+KIT="$(cd "$(dirname "$0")/.." && pwd)"
+BIN="$KIT/src-tauri/target/debug/mrmak-workspace"
+
+PROJECT="${1:-}"
+if [ "$PROJECT" = "--kit" ]; then PROJECT="$KIT"
+elif [ -z "$PROJECT" ]; then
+  PROJECT="$(grep -E '^CYBERSTUDIO_PROJECT_ROOT=' "$KIT/.env" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"')"
+  PROJECT="${PROJECT:-$KIT}"
+fi
+PROJECT="$(cd "$PROJECT" && pwd)"
+[ -f "$PROJECT/workspace/workspace.json" ] || { echo "No workspace/workspace.json in $PROJECT" >&2; exit 1; }
+
+if [ "$PROJECT" != "$KIT" ]; then
+  mkdir -p "$PROJECT/.claude" "$PROJECT/.agents"
+  for link in .claude/skills .agents/skills processes; do
+    [ -e "$PROJECT/$link" ] || ln -s "$KIT/$link" "$PROJECT/$link"
+  done
+fi
+
+if pgrep -f 'target/debug/mrmak-workspace' >/dev/null; then
+  echo "CyberStudio is already running. Quit it from the menu bar, then run this again." >&2; exit 1
+fi
+
+if [ ! -x "$BIN" ]; then
+  export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
+  (cd "$KIT" && npm run desktop:prepare && cd src-tauri && cargo build)
+fi
+
+# A rebuild while the app runs overwrites the bundled Node in place, and macOS
+# then kills that file on launch. A fresh copy (new inode) runs normally.
+NODE="$KIT/src-tauri/target/debug/runtime/node"
+if ! "$NODE" -e 0 2>/dev/null; then rm -f "$NODE" && cp "$KIT/.cache/desktop-runtime/node" "$NODE"; fi
+
+nohup "$BIN" --repo "$PROJECT" >/dev/null 2>&1 &
+echo "CyberStudio started on $PROJECT"

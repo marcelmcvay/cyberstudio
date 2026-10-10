@@ -1,0 +1,22 @@
+{
+  "about": "A project's look, machine-readable. Copy into the project (never keep client palettes in the kit), replace the palette with the project's own and keep the prompt blocks in step with the look guide.",
+  "version": "0.1",
+  "palette": [
+    {"id": "accent", "name": "Accent", "hex": "#000000", "role": "Accent", "use": "The one colour that pops. One to three parts per asset."},
+    {"id": "body", "name": "Main body", "hex": "#E8E8E8", "role": "Main body", "use": "Main enclosures. Very light grey, not pure white, so it separates from a white studio background."},
+    {"id": "panel", "name": "Secondary", "hex": "#C8D4DC", "role": "Secondary panels", "use": "Doors and secondary panels."},
+    {"id": "frame", "name": "Frames", "hex": "#5E6A72", "role": "Frames and posts", "use": "Structural posts, frames, guarding."},
+    {"id": "base", "name": "Bases", "hex": "#4F4F4F", "role": "Bases", "use": "Plinths, bases and feet. The darkest paint."},
+    {"id": "floor", "name": "Floor", "hex": "#C6C6C6", "role": "Floor", "use": "Floor finish."}
+  ],
+  "states": [
+    {"id": "running", "name": "Running", "hex": "#19B36B"},
+    {"id": "warning", "name": "Warning", "hex": "#FFC21A"},
+    {"id": "fault", "name": "Fault", "hex": "#E01E37"}
+  ],
+  "prompt": {
+    "style": "Style: an abstracted, clean industrial design based on a real machine. Keep its real proportions, mechanisms and materials, simplify the details, and show no logos, brand names or readable text. Colours: main enclosure in very light grey; secondary panels, doors and frames in <panel colour and hex>; structural posts and frames in <frame colour and hex>; base, plinth and feet in <base colour and hex>; brushed aluminium profiles, clear polycarbonate, stainless steel tooling, black rubber and cables. A single vivid accent colour (<accent hex>) on only: {accent}. Any stack light has green, amber and red segments. Satin powder-coat finish, softly rounded edges, clean and new.",
+    "studio": "The complete object fully in frame with margin on all sides. Plain seamless white background, soft even studio lighting, no cast shadows, no floor, no people.",
+    "sheet": "Orthographic turnaround reference sheet of this exact {object}, with the same design, colours, materials and details as the reference image. Arrange exactly four views side by side in one row, evenly spaced, all at the same scale and the same camera height: 1) FRONT view, looking straight at the front; 2) LEFT SIDE view: the object's own left side, which is the side on the right of the front view, so the object's front points to the LEFT edge of this panel; 3) BACK view, turned 180 degrees: exactly as wide as the front view, and whatever was on the right of the front view now appears on the left; 4) RIGHT SIDE view: the object's own right side, which is the side on the left of the front view, so the object's front points to the RIGHT edge of this panel. Real proportions: {w} m wide, {d} m deep and {h} m tall, so the front and back views are about {wh} times as wide as they are tall and the side views about {dh} times as wide as they are tall. {specifics} Orthographic, no perspective, eye level. Each view complete with margin, nothing overlapping. Plain seamless white background, even studio lighting, no shadows, no floor, no panel labels, no dividing lines, no text."
+  }
+}

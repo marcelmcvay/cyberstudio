@@ -14,8 +14,9 @@ import { loadEnv, projectRoot } from './lib/env.mjs';
 export const COLUMNS = ['ts', 'tool', 'model', 'job_id', 'asset_id', 'units', 'unit_type', 'cost_usd', 'cost_basis', 'note'];
 const BASES = new Set(['estimated', 'observed']);
 
-export function ledgerPath(root = projectRoot()) {
-  return join(root, 'ledger', 'spend.csv');
+export function ledgerPath(root) {
+  loadEnv(); // CYBERSTUDIO_PROJECT_ROOT may come from .env
+  return join(root ?? projectRoot(), 'ledger', 'spend.csv');
 }
 
 export function csvField(v) {

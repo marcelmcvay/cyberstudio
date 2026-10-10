@@ -19,6 +19,13 @@ labels and usable media previews. Retain enough prompt and version information
 to reproduce the work, while excluding tokens and signed provider links from
 public exports. End with a precise next step or the verified final artifact.
 
+For scenes built from many real objects, such as machines, equipment or store
+fixtures, use `real-to-asset`. Write the project's look guide and prompt style
+block before the first paid image, ground each asset on real products, and
+check every reference sheet's proportions before meshing. End each run with a
+review queue in the project: what was made, where to review it, the spend and
+what was left undone.
+
 For game work, continue into the relevant production skill: VFX, UI, animation
 integration, level design or game audio. Carry the accepted concept and real
 gameplay event markers into the implementation. Keep proposals, implemented

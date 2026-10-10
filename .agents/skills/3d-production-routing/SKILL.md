@@ -12,6 +12,7 @@ Inspect the supplied assets and the target engine before selecting a route.
 | Need | Skill |
 | --- | --- |
 | Explore silhouettes or edit an accepted image | `image-reference-workflow` |
+| Turn real machines, equipment or props into an art-directed asset family | `real-to-asset` |
 | Front sheet, parts and modeling references | `character-sheet-pipeline` |
 | Generate images, meshes, material maps or video through fal.ai | `fal-ai-generation` |
 | Work through an existing Higgsfield account | `higgsfield-workflow` |

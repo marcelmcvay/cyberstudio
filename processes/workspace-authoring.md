@@ -9,8 +9,10 @@
    Markdown requires no HTML wrapper and opens in the formatted document view.
 5. Make every image clickable and downloadable. Videos need native controls.
    Keep source links near claims and label historical model runs as historical.
-6. Update the registry's `updated` date after meaningful changes. Preserve the
-   original `created` date. Do not mark personal work `sample: true`.
+6. Give each card a small `hero` image and mark 3D tabs `compare3d`; projects
+   with many cards can add menu `views`. Update the registry's `updated` date
+   after meaningful changes. Preserve the original `created` date. Do not mark
+   personal work `sample: true`.
 7. Open every changed tab at wide and narrow widths, test links and media,
    then report the outcome. A built installer is not an installed update.
 

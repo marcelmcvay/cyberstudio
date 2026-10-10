@@ -33,6 +33,8 @@ inbox/*
 **/result.json
 **/upload.json
 **/*.blend1
+# Workspace 3D viewer binaries stay local; manifests and cards are versioned
+workspace/**/models/
 
 # Editor and operating-system files
 .vscode/

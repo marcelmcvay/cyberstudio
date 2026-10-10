@@ -2,6 +2,11 @@
 
 Newest first. Date, decision, who decided, why.
 
+## 2026-10-09
+
+- **Images made for 3D come as multiple angles: front, left, back and right, then `tripo_h3_1_multiview_to_3d`.** Marcel. One view leaves Tripo to invent the back. Tripo's slot order is front, left, back, right, and its left is the object's own left: the side on your right as you face the front. Verified 2026-10-09: the reverse order duplicated the mill's pendant and conveyor on both sides. Applies to objects; a flat material source (floor) stays a single image.
+- **Game-res assets use Tripo `face_limit`.** Marcel asked for a lower-poly CNC mill for game-like development. Budgets in this test: machine 20k faces, robot 12k, table and tool cart 6k, cabinet 3k. Standard 2K PBR textures.
+
 ## 2026-10-08
 
 - **VEC project repo is `octopd/vec-factory-proto`, private, in the `octopd` org.** Marcel. Lives at `~/cyberstudio-projects/vec-factory-proto` and is the kit's `CYBERSTUDIO_PROJECT_ROOT`. Large files through Git LFS. `Octo-Marcel/VEC-Factory-Proto` is not used.

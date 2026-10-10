@@ -9,3 +9,5 @@ This is a starting point. Replace it with your preferences when you are ready.
 - Permissions: choose the level appropriate for each task; do not infer a personal
   preference for bypassing approvals from the examples.
 - Restarts: ask before interrupting a running application or agent chat.
+- Image-to-3D: generate references at multiple angles (front, left, back, right)
+  and build the mesh from all of them. Show those generations in the asset's card.

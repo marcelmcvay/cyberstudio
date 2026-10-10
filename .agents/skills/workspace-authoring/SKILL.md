@@ -28,6 +28,14 @@ Update `workspace/workspace.json` with a stable ID, category, folder, readable
 title, creation date, last updated date and steps. `sample: true` is reserved for
 starter examples; ordinary work uses normal archiving behavior.
 
+Give each card a `hero`: its newest whole-object image, relative to the card's
+folder, as a small JPEG (about 720 px) rather than a full-size render. Mark 3D
+tabs with `"viewer": "compare3d"`. A project with many cards can add top-level
+`views`, such as `{"id": "models", "label": "3D", "viewer": "compare3d"}` or
+`{"id": "references", "label": "References", "steps": ["References"]}`. Each view
+becomes a menu tab that lists the cards with that tab, opens them on it, dims
+the cards still missing it and marks new arrivals.
+
 Open every changed tab at wide and narrow sizes. Check media and links, Markdown
 rendering and image close/download controls. Preserve the selected surface during
 loading. Report actual verification and any remaining limitations. Prepare

@@ -1,12 +1,12 @@
 @echo off
 setlocal
 set "MRMAK_LAUNCH_ROOT=%~dp0"
-if exist "%LOCALAPPDATA%\CyberStudio\mrmak-workspace.exe" (
-  start "" "%LOCALAPPDATA%\CyberStudio\mrmak-workspace.exe" --repo "%MRMAK_LAUNCH_ROOT%."
+if exist "%LOCALAPPDATA%\CyberStudio\CyberStudio.exe" (
+  start "" "%LOCALAPPDATA%\CyberStudio\CyberStudio.exe" --repo "%MRMAK_LAUNCH_ROOT%."
   exit /b 0
 )
-if exist "%MRMAK_LAUNCH_ROOT%src-tauri\target\release\mrmak-workspace.exe" (
-  start "" "%MRMAK_LAUNCH_ROOT%src-tauri\target\release\mrmak-workspace.exe" --repo "%MRMAK_LAUNCH_ROOT%."
+if exist "%MRMAK_LAUNCH_ROOT%src-tauri\target\release\CyberStudio.exe" (
+  start "" "%MRMAK_LAUNCH_ROOT%src-tauri\target\release\CyberStudio.exe" --repo "%MRMAK_LAUNCH_ROOT%."
   exit /b 0
 )
 echo Install CyberStudio from this project's GitHub Releases.

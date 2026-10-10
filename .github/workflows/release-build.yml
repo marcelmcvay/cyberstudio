@@ -52,7 +52,7 @@ jobs:
       - name: Stage Linux assets
         run: |
           mkdir -p release-assets
-          cp src-tauri/target/release/mrmak-workspace "release-assets/CyberStudio-${RELEASE_TAG}-linux-x86_64"
+          cp src-tauri/target/release/CyberStudio "release-assets/CyberStudio-${RELEASE_TAG}-linux-x86_64"
           cp src-tauri/target/release/bundle/appimage/*.AppImage "release-assets/CyberStudio-${RELEASE_TAG}-linux-x86_64.AppImage"
           file release-assets/*
 
@@ -95,7 +95,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path release-assets | Out-Null
           Copy-Item (Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1).FullName "release-assets/CyberStudio-$env:RELEASE_TAG-windows-x64-setup.exe"
-          Copy-Item src-tauri/target/release/mrmak-workspace.exe "release-assets/CyberStudio-$env:RELEASE_TAG-windows-x64.exe"
+          Copy-Item src-tauri/target/release/CyberStudio.exe "release-assets/CyberStudio-$env:RELEASE_TAG-windows-x64.exe"
 
       - uses: actions/upload-artifact@v4
         with:

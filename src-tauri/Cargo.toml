@@ -6,6 +6,12 @@ authors = ["CyberStudio contributors"]
 edition = "2021"
 rust-version = "1.77.2"
 
+# Executable named for the app: macOS shows it in the menu bar and Dock.
+# The package keeps its upstream name so Mr. Mak merges stay simple.
+[[bin]]
+name = "CyberStudio"
+path = "src/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

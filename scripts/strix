@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# Send work to the ROG Strix (Windows, RTX 5070 Ti) over Tailscale + SSH.
+#   scripts/strix status                 reachability, GPU, tool versions
+#   scripts/strix sh  < script.sh        run a bash script there (Git Bash), streamed over stdin
+#   scripts/strix put <local> [remote]   copy a file to the Strix (default: ~/cyberstudio-jobs/inbox/)
+#   scripts/strix get <remote> [local]   copy a file back
+#   scripts/strix blender <file.py> [args...]
+#                                        run a Blender script headless on the GPU
+#                                        (uploads file.py; extra args go after "--")
+#   scripts/strix pull                   git pull the kit and project repos there
+# Needs a `Host strix` entry in ~/.ssh/config. Remote paths are relative to C:\Users\<user>.
+set -euo pipefail
+HOST="${STRIX_HOST:-strix}"
+JOBS="cyberstudio-jobs"
+SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST")
+BASH_EXE='& "C:\Program Files\Git\bin\bash.exe" -s'
+
+# Windows PowerShell 5.1 is the SSH shell, and it mangles quoting. Everything
+# runs in Git Bash with the script on stdin, so nothing is re-parsed.
+remote_bash() { "${SSH[@]}" "$BASH_EXE" | tr -d '\r'; }
+
+cmd="${1:-status}"; shift || true
+case "$cmd" in
+  status)
+    remote_bash <<'EOF'
+echo "host     $(hostname) ($(whoami))"
+nvidia-smi --query-gpu=name,driver_version,memory.used,memory.total,temperature.gpu --format=csv,noheader 2>/dev/null | sed 's/^/gpu      /'
+echo "git      $(git --version | cut -d' ' -f3)"
+echo "node     $(node --version 2>/dev/null)"
+echo "claude   $(claude --version 2>/dev/null)"
+echo "blender  $(blender --version 2>/dev/null | head -1)"
+for r in cyberstudio cyberstudio-projects/vec-factory-proto; do echo "repo     $r @ $(git -C ~/$r log --oneline -1 2>/dev/null)"; done
+EOF
+    ;;
+  sh) remote_bash ;;
+  put)
+    src="$1"; dest="${2:-$JOBS/inbox/}"
+    remote_bash <<<"mkdir -p ~/$JOBS/inbox ~/$JOBS/out"
+    scp -q -o BatchMode=yes "$src" "$HOST:$dest" && echo "put $src -> $dest"
+    ;;
+  get)
+    src="$1"; dest="${2:-.}"
+    scp -q -o BatchMode=yes "$HOST:$src" "$dest" && echo "got $src -> $dest"
+    ;;
+  blender)
+    script="$1"; shift
+    name="$(basename "$script")"
+    "$0" put "$script" "$JOBS/inbox/$name" >/dev/null
+    remote_bash <<EOF
+cd ~/$JOBS
+start=\$(date +%s)
+blender -b --factory-startup --python "inbox/$name" -- $* 2>&1 | grep -v -e '^Fra:' -e '^\s*$' | tail -25
+echo "blender exit \${PIPESTATUS[0]} in \$(( \$(date +%s) - start ))s"
+EOF
+    ;;
+  pull)
+    remote_bash <<'EOF'
+for r in cyberstudio cyberstudio-projects/vec-factory-proto; do
+  printf '%s: ' "$r"; timeout 120 git -C ~/$r pull -q --ff-only < /dev/null && git -C ~/$r log --oneline -1
+done
+EOF
+    ;;
+  *) sed -n '2,13p' "$0"; exit 1 ;;
+esac

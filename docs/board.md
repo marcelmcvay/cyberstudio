@@ -29,6 +29,7 @@ Producer keeps this current. Status: `todo` · `doing` · `done` · `blocked (Ma
 | Asset sidecar schema (extends `schema-v1.json`) | todo | |
 | `cyberstudio-3d` branch, `vec-factory` project | doing | VEC repo is now a CyberStudio Workspace (own `workspace.json`; kit skills and processes linked). Launch with `scripts/studio`. Branch not started |
 | ~5 AD images, 3 Tripo meshes, three.js scene | todo | Meshes via Higgsfield-hosted Tripo H3.1 |
+| ROG Strix job host (pulled forward from M3) | doing | Tailscale (`strix`), OpenSSH key login, Git/LFS, Node, Claude Code, Blender 5.2.2 on the Strix; kit + VEC cloned. `scripts/strix` (status/sh/put/get/blender/pull). First GPU job: `scripts/blender/render-glb.py`, OptiX 5070 Ti, 17.8k tris 1600x900 128spp in ~4 s. Next: remote Blender MCP, Strix chats in CyberStudio, job queue |
 
 ## M2: Discrete plant scene
 

@@ -64,7 +64,7 @@ export class LiveVoice {
       const result = await api<{ session: { id: string }; transport: { sdp: string } }>('/live/session', { sdp: peer.localDescription?.sdp, clientId, surface })
       if (generation !== this.generation) { await api('/live/release', { clientId }); return }
       this.sessionId = result.session.id
-      this.startTimer = window.setTimeout(() => this.fail('OpenAI did not start the voice session. Press the nose to try again.'), 25000)
+      this.startTimer = window.setTimeout(() => this.fail('OpenAI did not start the voice session. Press the eye to try again.'), 25000)
       await peer.setRemoteDescription({ type: 'answer', sdp: result.transport.sdp })
     } catch (error) { if (generation === this.generation) this.fail(error instanceof Error ? error.message : String(error)) }
   }

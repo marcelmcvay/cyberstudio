@@ -1,7 +1,7 @@
 import type { WorkspaceEntity } from '../types'
-import { categoryIcon } from '../lib/categories'
 import MakCard from './MakCard'
 import MakLogo from './MakLogo'
+import type { ViewRow } from './Sidebar'
 
 interface HomeGridProps {
   entities: WorkspaceEntity[]
@@ -10,6 +10,55 @@ interface HomeGridProps {
   offline: boolean
   searching: boolean
   query: string
+  /** A review view's cards by category; null shows the normal home. */
+  viewRows?: Map<string, ViewRow[]> | null
+  viewLabel?: string
+  onOpenRow?: (entity: WorkspaceEntity) => void
+}
+
+function ViewGallery({ rows, label, onOpen }: { rows: Map<string, ViewRow[]>; label: string; onOpen?: (e: WorkspaceEntity) => void }) {
+  const all = [...rows.values()].flat()
+  const ready = all.filter(r => r.step >= 0)
+  const fresh = ready.filter(r => r.fresh).length
+  return (
+    <div className="home">
+      <header className="home-hero view-hero">
+        <div>
+          <h1 className="home-title">{label}</h1>
+          <p className="home-sub">
+            <b>{ready.length}</b> of <b>{all.length}</b> ready
+            {fresh > 0 && <> · <b className="view-new-count">{fresh}</b> new since you last looked</>}
+            {' '}· this page refreshes as work lands
+          </p>
+        </div>
+      </header>
+      {[...rows.entries()].map(([cat, list]) => {
+        const have = list.filter(r => r.step >= 0)
+        const missing = list.filter(r => r.step < 0)
+        return (
+          <section key={cat} className="home-section">
+            <div className="section-head">
+              <span className="section-title">
+                {cat.replace(/-/g, ' ')}
+              </span>
+              <span className="section-count">{have.length} / {list.length}</span>
+            </div>
+            {have.length > 0 && (
+              <div className="card-grid">
+                {have.map(r => (
+                  <MakCard key={r.entity.id} entity={r.entity} step={r.step} fresh={r.fresh} onOpen={() => onOpen?.(r.entity)} />
+                ))}
+              </div>
+            )}
+            {missing.length > 0 && (
+              <p className="view-missing">Not yet: {missing.map(r => r.entity.title).join(', ')}</p>
+            )}
+          </section>
+        )
+      })}
+      {all.length === 0 && <div className="home-empty">Nothing in this view yet, sir.</div>}
+    </div>
+  )
 }
 
 function greeting(): string {
@@ -27,7 +76,11 @@ export default function HomeGrid({
   offline,
   searching,
   query,
+  viewRows = null,
+  viewLabel = '',
+  onOpenRow,
 }: HomeGridProps) {
+  if (viewRows) return <ViewGallery rows={viewRows} label={viewLabel} onOpen={onOpenRow} />
   const activeCount = entities.filter(e => e.status === 'active').length
   const categoryCount = new Set(entities.map(e => e.category || 'other')).size
   const shown = pinned.length + [...grouped.values()].reduce((n, list) => n + list.length, 0)
@@ -56,7 +109,7 @@ export default function HomeGrid({
       {pinned.length > 0 && (
         <section className="home-section">
           <div className="section-head">
-            <span className="section-title">{'\u{1F4CC}'} pinned</span>
+            <span className="section-title">pinned</span>
             <span className="section-count">{pinned.length}</span>
           </div>
           <div className="card-grid">
@@ -71,7 +124,7 @@ export default function HomeGrid({
         <section key={cat} className="home-section">
           <div className="section-head">
             <span className="section-title">
-              {categoryIcon(cat)} {cat.replace(/-/g, ' ')}
+              {cat.replace(/-/g, ' ')}
             </span>
             <span className="section-count">{list.length}</span>
           </div>

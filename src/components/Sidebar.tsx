@@ -1,10 +1,18 @@
 import type { RefObject } from 'react'
-import type { WorkspaceEntity } from '../types'
+import type { WorkspaceEntity, WorkspaceView } from '../types'
 import { entityHash } from '../lib/route'
 import { categoryIcon } from '../lib/categories'
 import { contentUrl } from '../desktop/client'
 import MakLogo from './MakLogo'
 import MakText from './MakText'
+import './views.css'
+
+/** One card in a review view. step -1 means it does not have the view's tab yet. */
+export interface ViewRow {
+  entity: WorkspaceEntity
+  step: number
+  fresh: boolean
+}
 
 interface SidebarProps {
   pinned: WorkspaceEntity[]
@@ -20,7 +28,15 @@ interface SidebarProps {
   offline: boolean
   lastSync: Date | null
   onCollapse: () => void
+  views: WorkspaceView[]
+  viewId: string | null
+  onView: (id: string | null) => void
+  viewCounts: Record<string, number>
+  viewRows: Map<string, ViewRow[]> | null
+  onOpenRow: (entity: WorkspaceEntity) => void
 }
+
+const heroUrl = (e: WorkspaceEntity) => contentUrl(`/workspace/${e.folder}/${e.hero}`)
 
 function Item({ entity, active }: { entity: WorkspaceEntity; active: boolean }) {
   return (
@@ -30,10 +46,34 @@ function Item({ entity, active }: { entity: WorkspaceEntity; active: boolean }) 
       aria-current={active ? 'page' : undefined}
     >
       <span className="item-icon" aria-hidden="true">
-        {entity.icon ? <img src={contentUrl(`/workspace/${entity.folder}/${entity.icon}`)} width="24" height="24" alt="" decoding="async" /> : categoryIcon(entity.category)}
+        {entity.icon ? <img src={contentUrl(`/workspace/${entity.folder}/${entity.icon}`)} width="24" height="24" alt="" decoding="async" />
+          : entity.hero ? <img className="item-hero" src={heroUrl(entity)} width="24" height="24" alt="" loading="lazy" decoding="async" />
+          : categoryIcon(entity.category)}
       </span>
       <span className="item-text">{entity.title}</span>
       <span className={`status-dot ${entity.status}`} title={entity.status} />
+    </a>
+  )
+}
+
+function ViewItem({ row, active, onOpen }: { row: ViewRow; active: boolean; onOpen: (e: WorkspaceEntity) => void }) {
+  const { entity, step, fresh } = row
+  const missing = step < 0
+  return (
+    <a
+      href={entityHash(entity.id, step)}
+      className={`sidebar-item view-item${active ? ' active' : ''}${missing ? ' missing' : ''}${fresh ? ' fresh' : ''}`}
+      aria-current={active ? 'page' : undefined}
+      onClick={() => { if (!missing) onOpen(entity) }}
+    >
+      <span className="view-thumb" aria-hidden="true">
+        {entity.hero ? <img src={heroUrl(entity)} alt="" loading="lazy" decoding="async" /> : categoryIcon(entity.category)}
+      </span>
+      <span className="item-text">
+        <span className="view-title">{entity.title}</span>
+        <small>{missing ? 'not yet' : `${entity.steps[step].name} · ${entity.updated ?? entity.created}`}</small>
+      </span>
+      {fresh && <span className="view-new">new</span>}
     </a>
   )
 }
@@ -52,8 +92,14 @@ export default function Sidebar({
   offline,
   lastSync,
   onCollapse,
+  views,
+  viewId,
+  onView,
+  viewCounts,
+  viewRows,
+  onOpenRow,
 }: SidebarProps) {
-  const empty = pinned.length === 0 && grouped.size === 0
+  const empty = viewRows ? viewRows.size === 0 : pinned.length === 0 && grouped.size === 0
 
   return (
     <aside className="sidebar">
@@ -97,8 +143,34 @@ export default function Sidebar({
         )}
       </div>
 
+      {views.length > 0 && (
+        <div className="sidebar-views" role="group" aria-label="Menu view">
+          <button className={viewId ? '' : 'on'} aria-pressed={!viewId} onClick={() => onView(null)}>
+            Areas
+          </button>
+          {views.map(v => (
+            <button key={v.id} className={viewId === v.id ? 'on' : ''} aria-pressed={viewId === v.id} onClick={() => onView(v.id)}>
+              {v.label}
+              <span className="sidebar-count">{viewCounts[v.id] ?? 0}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <nav className="sidebar-list">
-        {pinned.length > 0 && (
+        {viewRows && [...viewRows.entries()].map(([cat, rows]) => (
+          <div key={cat}>
+            <div className="sidebar-section">
+              <span className="sidebar-label">{cat.replace(/-/g, ' ')}</span>
+              <span className="sidebar-count">{rows.filter(r => r.step >= 0).length} / {rows.length}</span>
+            </div>
+            {rows.map(r => (
+              <ViewItem key={r.entity.id} row={r} active={r.entity.id === activeId} onOpen={onOpenRow} />
+            ))}
+          </div>
+        ))}
+
+        {!viewRows && pinned.length > 0 && (
           <div>
             <div className="sidebar-section">
               <span className="sidebar-label">{'\u{1F4CC}'} pinned</span>
@@ -109,7 +181,7 @@ export default function Sidebar({
           </div>
         )}
 
-        {[...grouped.entries()].map(([cat, list]) => (
+        {!viewRows && [...grouped.entries()].map(([cat, list]) => (
           <div key={cat}>
             <div className="sidebar-section">
               <span className="sidebar-label">{cat.replace(/-/g, ' ')}</span>
@@ -123,7 +195,7 @@ export default function Sidebar({
 
         {empty && <div className="sidebar-empty">Nothing matches, sir.</div>}
 
-        {archivedCount > 0 && !query && (
+        {!viewRows && archivedCount > 0 && !query && (
           <button className="sidebar-archive-toggle" onClick={onToggleArchived}>
             {showArchived
               ? `▼ Hide archive (${archivedCount})`

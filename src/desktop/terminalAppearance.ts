@@ -3,21 +3,21 @@ import type { AgentId } from './types'
 
 export type TerminalAppearance = 'focus' | 'original'
 export type TerminalRole = 'user' | 'agent' | 'detail'
-export const roleColors = { user: '#a7c5df', agent: '#ecece9', detail: '#90949f' }
+export const roleColors = { user: '#a7c5df', agent: '#ecece9', detail: '#9e9692' }
 export const originalTheme: ITheme = {
-  background: '#0c0d10', foreground: '#d7d8e1', cursor: '#f0a0b0', selectionBackground: '#f0a0b036',
-  black: '#252731', red: '#ed8a95', green: '#88d8bf', yellow: '#e6c88d', blue: '#89b7ed',
-  magenta: '#b3a3f7', cyan: '#84c9d1', white: '#d7d8e1', brightBlack: '#727582', brightWhite: '#ffffff',
+  background: '#0e0c0b', foreground: '#e6ded2', cursor: '#ff4636', selectionBackground: '#ff463636',
+  black: '#302a26', red: '#ed8a95', green: '#88d8bf', yellow: '#e6c88d', blue: '#89b7ed',
+  magenta: '#b3a3f7', cyan: '#84c9d1', white: '#e6ded2', brightBlack: '#807974', brightWhite: '#ffffff',
 }
 export const focusTheme: ITheme = {
-  background: '#0c0d10', foreground: roleColors.agent, cursor: '#bed0df', cursorAccent: '#0c0d10', selectionBackground: '#a7c5df35',
-  black: '#252731', brightBlack: '#90949f', white: '#d9dce1', brightWhite: '#f5f5f0',
+  background: '#0e0c0b', foreground: roleColors.agent, cursor: '#bed0df', cursorAccent: '#0e0c0b', selectionBackground: '#a7c5df35',
+  black: '#302a26', brightBlack: '#9e9692', white: '#e0dcda', brightWhite: '#f5f5f0',
   red: '#ce9b9f', brightRed: '#deb0b4', green: '#a6b9ae', brightGreen: '#bdcfc4',
   yellow: '#beb5a0', brightYellow: '#d4c9af', blue: '#a3b8cd', brightBlue: '#b5cadf',
   magenta: '#b9a9c2', brightMagenta: '#c8b9d0', cyan: '#a4babf', brightCyan: '#bacdd0',
   extendedAnsi: Array.from({ length: 240 }, (_, index) => {
     if (index >= 216) { const gray = (8 + (index - 216) * 10).toString(16).padStart(2, '0'); return `#${gray}${gray}${gray}` }
-    return '#b8bec6'
+    return '#c5beb9'
   }),
 }
 

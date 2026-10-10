@@ -28,10 +28,28 @@ export interface WorkspaceEntity {
   pinned?: boolean
   /** Starter examples remain visible until explicitly archived. */
   sample?: boolean
+  /** The card's hero: its newest whole-object image, relative to this entity's folder. */
+  hero?: string
+}
+
+/**
+ * A review view in the menu: every card with a matching tab, opened straight on
+ * that tab, next to the cards that do not have it yet in any category that takes
+ * part in a view.
+ */
+export interface WorkspaceView {
+  id: string
+  label: string
+  /** Tab names that belong to the view, matched exactly. */
+  steps?: string[]
+  /** Or any tab rendered by this viewer. */
+  viewer?: WorkspaceStep['viewer']
 }
 
 export interface WorkspaceState {
   entities: WorkspaceEntity[]
+  /** Extra menu views next to the default grouping by category. */
+  views?: WorkspaceView[]
 }
 
 /* ─── 3D comparison steps ─────────────────────────────────────────────────

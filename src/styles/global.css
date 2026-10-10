@@ -1,10 +1,10 @@
-/* Luminous Mak — global styles. All values come from tokens.css. */
+/* Shell + Nutrient — global styles. All values come from tokens.css. */
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body, #root { height: 100%; }
-html { background: #101115; color-scheme: dark; }
-* { scrollbar-width: thin; scrollbar-color: #514c59 #111217; }
+html { background: #0e0c0b; color-scheme: dark; }
+* { scrollbar-width: thin; scrollbar-color: #59514c #161412; }
 
 body {
   font-family: var(--font-body);
@@ -15,7 +15,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Aura — soft pink/purple pools of light behind everything */
+/* Aura — faint servo and chrome pools of light behind everything */
 body::before {
   content: '';
   position: fixed;
@@ -23,9 +23,9 @@ body::before {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(520px 420px at 12% -4%, rgba(240, 160, 176, 0.08), transparent 65%),
-    radial-gradient(720px 560px at 96% 104%, rgba(183, 148, 244, 0.065), transparent 65%),
-    radial-gradient(900px 500px at 55% 120%, rgba(240, 160, 176, 0.03), transparent 70%);
+    radial-gradient(520px 420px at 12% -4%, rgba(255, 70, 54, 0.08), transparent 65%),
+    radial-gradient(720px 560px at 96% 104%, rgba(201, 209, 212, 0.065), transparent 65%),
+    radial-gradient(900px 500px at 55% 120%, rgba(255, 70, 54, 0.03), transparent 70%);
 }
 
 /* Grain — barely-there film noise so the dark fields don't band */
@@ -42,7 +42,7 @@ body::after {
 
 a { color: var(--pink); text-decoration: none; }
 
-::selection { background: rgba(240, 160, 176, 0.3); }
+::selection { background: rgba(255, 70, 54, 0.3); }
 
 a:focus-visible,
 button:focus-visible {
@@ -114,7 +114,7 @@ button:focus-visible {
 .sidebar-collapse:hover {
   background: var(--surface-2);
   color: var(--text-bright);
-  border-color: rgba(240, 160, 176, 0.45);
+  border-color: rgba(255, 70, 54, 0.45);
 }
 
 /* the floating CyberStudio nose that brings the menu back — only when collapsed */
@@ -203,7 +203,7 @@ button:focus-visible {
 .sidebar-search input::placeholder { color: var(--text-muted); }
 .sidebar-search input:focus {
   outline: none;
-  border-color: rgba(240, 160, 176, 0.45);
+  border-color: rgba(255, 70, 54, 0.45);
   background: var(--surface-2);
   box-shadow: var(--glow-pink);
 }
@@ -276,9 +276,9 @@ button:focus-visible {
 
 .sidebar-item.pinned {
   box-shadow: inset 2px 0 0 var(--amber);
-  background: rgba(234, 181, 110, 0.04);
+  background: rgba(220, 179, 92, 0.04);
 }
-.sidebar-item.pinned:hover { background: rgba(234, 181, 110, 0.09); }
+.sidebar-item.pinned:hover { background: rgba(220, 179, 92, 0.09); }
 .sidebar-item.pinned.active {
   background:
     linear-gradient(var(--surface-3), var(--surface-2)) padding-box,
@@ -310,7 +310,7 @@ button:focus-visible {
 }
 .status-dot.active {
   background: var(--purple);
-  box-shadow: 0 0 8px rgba(183, 148, 244, 0.6);
+  box-shadow: 0 0 8px rgba(201, 209, 212, 0.6);
 }
 .status-dot.done { background: var(--green); }
 .status-dot.archived { background: var(--text-muted); }
@@ -384,6 +384,26 @@ button:focus-visible {
   backdrop-filter: blur(14px);
 }
 
+/* HUD readout strip under the topbar */
+.hud-readout {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  padding: 7px 20px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--bg-deep);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.hud-readout b { font-weight: 500; color: var(--text); text-transform: none; letter-spacing: 0.04em; }
+.hud-readout .hud-spend b { font-variant-numeric: tabular-nums; }
+.hud-readout .hud-spend.warn b { color: var(--nutrient); }
+.hud-readout .hud-spend.over b { color: var(--oxblood); }
+
 .breadcrumb {
   display: flex;
   align-items: center;
@@ -443,8 +463,9 @@ button:focus-visible {
 .app-layout:not([data-entity="my-dream-game"]) .topbar:has(.step-tabs) .breadcrumb{width:100%;min-height:24px}
 .app-layout:not([data-entity="my-dream-game"]) .topbar:has(.step-tabs) .topbar-right{width:100%;margin:0;align-items:flex-start}
 .app-layout:not([data-entity="my-dream-game"]) .step-tabs{flex:1;background:transparent;border:0;gap:5px;padding:0}
-.app-layout:not([data-entity="my-dream-game"]) .step-tab{border:1px solid #ffffff0c;padding:6px 10px;color:#a59dab;border-radius:7px}
-.app-layout:not([data-entity="my-dream-game"]) .step-tab.active{border-color:#f0a0b036;color:#f7bbca;background:#f0a0b012}
+.app-layout:not([data-entity="my-dream-game"]) .step-tab{border:1px solid var(--hairline);padding:6px 10px;color:var(--text-muted);border-radius:2px;font:500 10.5px/1.2 var(--font-mono);letter-spacing:.1em;text-transform:uppercase}
+.app-layout:not([data-entity="my-dream-game"]) .step-tab:hover{color:var(--text);border-color:var(--hairline-strong)}
+.app-layout:not([data-entity="my-dream-game"]) .step-tab.active{border-color:var(--servo);color:var(--bg);background:var(--servo)}
 
 .step-tab {
   padding: 4px 12px;
@@ -487,7 +508,7 @@ button:focus-visible {
 }
 .open-ext:hover {
   color: var(--pink);
-  border-color: rgba(240, 160, 176, 0.4);
+  border-color: rgba(255, 70, 54, 0.4);
   box-shadow: var(--glow-pink);
 }
 
@@ -496,22 +517,32 @@ button:focus-visible {
   flex: 1;
   position: relative;
   overflow: hidden;
-  background: #101115;
+  background: #0e0c0b;
 }
+/* Faint static scanlines over the work surface (dark theme only) */
+.content::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(236, 228, 216, 0.018) 0 1px, transparent 1px 3px);
+}
+html[data-workspace-theme=light] .content::after { display: none; }
 
-.report-document { position: relative; height: 100%; min-height: 0; background: #101115; }
+.report-document { position: relative; height: 100%; min-height: 0; background: #0e0c0b; }
 .report-error { padding: 32px; max-width: 760px; line-height: 1.7; }
 .report-error-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
-.report-error-actions button { padding: 8px 14px; border: 1px solid #ffffff25; border-radius: 6px; background: #24212a; color: #f4eaf0; cursor: pointer; }
-.report-error details { color: #aaa2b2; }
+.report-error-actions button { padding: 8px 14px; border: 1px solid #ffffff25; border-radius: 6px; background: #2a2521; color: #f1efed; cursor: pointer; }
+.report-error details { color: #b2a8a2; }
 .report-error pre { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 12px; }
-.report-document > .report-loading { position: absolute; inset: 0; background: #101115; }
+.report-document > .report-loading { position: absolute; inset: 0; background: #0e0c0b; }
 .report-frame {
   display: block;
   width: 100%;
   height: 100%;
   border: none;
-  background: #101115;
+  background: #0e0c0b;
   color-scheme: dark;
   visibility: hidden;
   opacity: 0;
@@ -534,8 +565,8 @@ button:focus-visible {
 
 .home-title {
   font-family: var(--font-display);
-  font-style: italic;
-  font-weight: 550;
+  font-style: normal;
+  font-weight: 600;
   font-size: 2.15rem;
   letter-spacing: 0.2px;
   color: var(--text-bright);
@@ -567,14 +598,16 @@ button:focus-visible {
 }
 
 .section-title {
+  font-family: var(--font-mono);
   font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 1.8px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--text-dim);
 }
+.section-title::before { content: '// '; color: var(--text-muted); }
 
-.section-count { font-size: 0.66rem; color: var(--text-muted); }
+.section-count { font-family: var(--font-mono); font-size: 0.66rem; color: var(--text-muted); }
 
 .card-grid {
   display: grid;
@@ -655,7 +688,7 @@ button:focus-visible {
 }
 .chip-pin {
   color: var(--amber);
-  border-color: rgba(234, 181, 110, 0.35);
+  border-color: rgba(220, 179, 92, 0.35);
   background: var(--amber-dim);
 }
 
@@ -708,19 +741,31 @@ button:focus-visible {
   transform: none;
 }
 
-/* ─── CyberStudio logo container ─── */
-.mak-logo { flex-shrink: 0; }
+/* ─── CyberStudio logo: Cy's optic ─── */
+.mak-logo { flex-shrink: 0; display: block; }
+.cy-eye .cy-eye-ring { stroke: var(--chrome); }
+.cy-eye .cy-eye-lens { fill: var(--nutrient); opacity: .16; }
+.cy-eye .cy-eye-pupil-stroke { stroke: var(--nutrient); }
+.cy-eye .cy-eye-pupil { fill: var(--nutrient); }
+.cy-eye .cy-eye-scan { fill: var(--cy); opacity: 0; }
+.cy-eye.is-quiet .cy-eye-ring { stroke: var(--text-dim); }
+.cy-eye .cy-eye-iris { transform-origin: 50px 50px; }
+.cy-eye.is-animated .cy-eye-iris { animation: cy-iris 4.8s ease-in-out infinite; }
+.cy-eye.is-animated .cy-eye-scan { animation: cy-scan 3.6s linear infinite; }
+@keyframes cy-iris { 0%, 100% { transform: scale(1); } 45%, 55% { transform: scale(.84); } }
+@keyframes cy-scan { 0% { transform: translateY(-26px); opacity: 0; } 15%, 85% { opacity: .9; } 100% { transform: translateY(26px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .cy-eye.is-animated .cy-eye-iris, .cy-eye.is-animated .cy-eye-scan { animation: none; } }
 
 /* ─── Scrollbars ─── */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: #111217; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: #161412; }
 ::-webkit-scrollbar-thumb {
-  background: #514c59;
+  background: #59514c;
   border-radius: 4px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
-::-webkit-scrollbar-thumb:hover { background-color: #6d6678; }
+::-webkit-scrollbar-thumb:hover { background-color: #786d66; }
 
 /* ─── Reduced motion ─── */
 @media (prefers-reduced-motion: reduce) {
@@ -789,7 +834,7 @@ button:focus-visible {
   appearance: none;
   text-overflow: ellipsis;
 }
-.c3d-select:hover { border-color: rgba(240, 160, 176, 0.4); }
+.c3d-select:hover { border-color: rgba(255, 70, 54, 0.4); }
 .c3d-select:focus-visible { outline: 1px solid var(--pink); outline-offset: 1px; }
 /* The open list is drawn by the OS, not by us. It ignores background on
    `option` and inherits the closed control's colour, which gave pale pink on
@@ -798,7 +843,7 @@ button:focus-visible {
    is painted outside the page and cannot be trusted with custom properties. */
 .c3d-select { color-scheme: dark; }
 .c3d-select option {
-  background-color: #1f1f22;
+  background-color: #22201f;
   color: #e8e8e8;
 }
 .c3d-select option:checked { color: var(--pink-bright); }
@@ -1062,7 +1107,7 @@ button:focus-visible {
   font-size: 0.66rem;
   padding: 1px 7px;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(234, 181, 110, 0.35);
+  border: 1px solid rgba(220, 179, 92, 0.35);
   background: var(--amber-dim);
   color: var(--amber);
   white-space: nowrap;

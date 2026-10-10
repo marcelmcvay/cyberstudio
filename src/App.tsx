@@ -2,9 +2,12 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import type { WorkspaceEntity } from './types'
 import { useWorkspace, archiveCutoff } from './lib/workspace'
 import { parseHash, entityHash, resolveStep, type Route } from './lib/route'
+import { viewStep, signature, loadSeen, saveSeen } from './lib/views'
+import type { ViewRow } from './components/Sidebar'
 import MakLogo from './components/MakLogo'
 import Sidebar from './components/Sidebar'
 import Topbar from './components/Topbar'
+import Readout from './components/Readout'
 import HomeGrid from './components/HomeGrid'
 import ReportBoundary from './components/ReportBoundary'
 import { contentUrl, isDesktop } from './desktop/client'
@@ -25,17 +28,40 @@ export default function App() {
   const [route, setRoute] = useState<Route>(parseHash)
   const [query, setQuery] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+  // A review view (References, 3D, …) keeps the menu open: it is the way you
+  // step from card to card. The default grouping folds away on desktop as before.
+  const [viewId, setViewId] = useState<string | null>(() => localStorage.getItem('mak.view'))
+  const viewRef = useRef(viewId)
   const [collapsed, setCollapsed] = useState(
-    () => isDesktop || localStorage.getItem('mak.sidebarCollapsed') === '1',
+    () => (isDesktop && !localStorage.getItem('mak.view')) || localStorage.getItem('mak.sidebarCollapsed') === '1',
   )
+  const [, setSeenTick] = useState(0)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     localStorage.setItem('mak.sidebarCollapsed', collapsed ? '1' : '0')
   }, [collapsed])
 
+  const chooseView = useCallback((id: string | null) => {
+    viewRef.current = id
+    setViewId(id)
+    if (id) localStorage.setItem('mak.view', id)
+    else localStorage.removeItem('mak.view')
+  }, [])
+
   const entities = workspace?.entities ?? []
   const entity = entities.find(e => e.id === route.id) ?? null
+  const views = workspace?.views ?? []
+  const view = views.find(v => v.id === viewId) ?? null
+
+  const markSeen = useCallback((e: WorkspaceEntity) => {
+    const id = viewRef.current
+    if (!id) return
+    const seen = loadSeen(id) ?? new Set<string>()
+    seen.add(signature(e))
+    saveSeen(id, seen)
+    setSeenTick(t => t + 1)
+  }, [])
 
   const stepIndex = entity
     ? resolveStep(entity.steps.length, route.step, entity.defaultStep)
@@ -45,9 +71,22 @@ export default function App() {
 
   // Hash → state: entity links navigate natively; this also covers back/forward.
   useEffect(() => {
-    const onHash = () => { setRoute(parseHash()); if (isDesktop) setCollapsed(true) }
+    const onHash = () => { setRoute(parseHash()); if (isDesktop && !viewRef.current) setCollapsed(true) }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  // Reports run in a frame (sandboxed on desktop), so their "#/card/tab" links
+  // arrive from report.js as a message instead of a navigation.
+  useEffect(() => {
+    const onMessage = (ev: MessageEvent) => {
+      const frames = [...document.querySelectorAll('iframe')].map(f => f.contentWindow)
+      if (!ev.source || !frames.includes(ev.source as Window)) return
+      const hash = ev.data?.type === 'mrmak:open' ? ev.data.hash : null
+      if (typeof hash === 'string' && /^#\/[\w.-]+(\/\d+)?$/.test(hash)) window.location.hash = hash
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
   }, [])
 
   // "/" focuses search; "[" toggles the sidebar (handy for a clean screen recording).
@@ -123,6 +162,35 @@ export default function App() {
     grouped.get(cat)!.push(e)
   }
 
+  // Review view: the cards with the view's tab, plus every card in a category
+  // that takes part in any view and does not have it yet, so the list fills in.
+  // First visit to a view: everything already there counts as seen. Writing
+  // that once is idempotent, so doing it while rendering is safe.
+  let seen = view ? loadSeen(view.id) : null
+  if (view && !seen) {
+    seen = new Set(entities.filter(e => viewStep(e, view) >= 0).map(signature))
+    saveSeen(view.id, seen)
+  }
+  const viewCounts: Record<string, number> = {}
+  for (const v of views) viewCounts[v.id] = visible.filter(e => !isArchived(e) && viewStep(e, v) >= 0).length
+  let viewRows: Map<string, ViewRow[]> | null = null
+  if (view) {
+    const pool = visible.filter(e => !isArchived(e)).sort(byFreshness)
+    const cats = new Set(pool.filter(e => views.some(v => viewStep(e, v) >= 0)).map(e => e.category || 'other'))
+    viewRows = new Map()
+    for (const e of pool) {
+      const cat = e.category || 'other'
+      if (!cats.has(cat)) continue
+      const step = viewStep(e, view)
+      if (!viewRows.has(cat)) viewRows.set(cat, [])
+      viewRows.get(cat)!.push({ entity: e, step, fresh: step >= 0 && !!seen && !seen.has(signature(e)) })
+    }
+    for (const rows of viewRows.values()) rows.sort((a, b) => Number(b.step >= 0) - Number(a.step >= 0))
+    // Categories with something to review lead; the rest keep their order below.
+    const ready = (rows: ViewRow[]) => rows.some(r => r.step >= 0)
+    viewRows = new Map([...viewRows].sort(([, a], [, b]) => Number(ready(b)) - Number(ready(a))))
+  }
+
   return (
     <div className={`app-layout${collapsed ? ' sidebar-collapsed' : ''}`} data-entity={route.id}>
       <Sidebar
@@ -139,12 +207,18 @@ export default function App() {
         offline={offline}
         lastSync={lastSync}
         onCollapse={() => setCollapsed(true)}
+        views={views}
+        viewId={view?.id ?? null}
+        onView={chooseView}
+        viewCounts={viewCounts}
+        viewRows={viewRows}
+        onOpenRow={markSeen}
       />
 
       <button
         className="sidebar-reopen"
         onClick={() => setCollapsed(false)}
-        title="Show menu — press the nose ( [ )"
+        title="Show menu — press the eye ( [ )"
         aria-label="Show menu"
       >
         <MakLogo size={38} animated={route.id !== 'my-dream-game'} />
@@ -160,6 +234,7 @@ export default function App() {
           // tab helps nobody, so the external link is hidden for those.
           reportUrl={step?.viewer === 'compare3d' ? null : reportUrl}
         />
+        <Readout />
 
         <div className="content">
           <ReportBoundary key={reportUrl || 'home'} onHome={goHome}>
@@ -179,6 +254,9 @@ export default function App() {
               offline={offline}
               searching={searching}
               query={query}
+              viewRows={viewRows}
+              viewLabel={view?.label}
+              onOpenRow={markSeen}
             />
           )}
           </ReportBoundary>

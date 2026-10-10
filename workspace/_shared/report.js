@@ -42,3 +42,14 @@
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready, { once: true }); else ready();
 })();
+/* Card links: an "#/<card>/<tab>" link in a report opens that Workspace card. */
+(() => {
+  if (window.__makCardLinks || window.parent === window) return;
+  window.__makCardLinks = true;
+  document.addEventListener('click', event => {
+    const link = event.target.closest?.('a[href^="#/"]');
+    if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    parent.postMessage({ type: 'mrmak:open', hash: link.getAttribute('href') }, '*');
+  });
+})();

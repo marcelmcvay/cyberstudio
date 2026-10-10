@@ -184,6 +184,21 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
           return json(response, 200, { repo, contentBase: `${files.origin}/view/${files.repoGrant}`, agents: inventory(), sessions: sessions.list(), settings, selectedId, notices, coordinator: coordinator.state, voice: { configured: !!(keys.OPENAI_API_KEY || keys.OPENAI_KEY || process.env.OPENAI_API_KEY), owner: voiceOwner }, voiceHistory, operations: [...coordinator.operations.values(), ...quick.operations.values()].sort((a, b) => a.at.localeCompare(b.at)).slice(-30) });
         }
         if (method === 'GET' && url.pathname === '/api/workspace') return json(response, 200, await registry());
+        if (method === 'GET' && url.pathname === '/api/ledger') {
+          // Month-to-date paid generation spend from ledger/spend.csv (written by scripts/ledger.mjs).
+          const keys = parseEnv(await readFile(path.join(repo, '.env'), 'utf8').catch(() => ''));
+          const cap = Number(process.env.CYBERSTUDIO_MONTHLY_CAP_USD || keys.CYBERSTUDIO_MONTHLY_CAP_USD) || 300;
+          const rows = (await readFile(path.join(repo, 'ledger', 'spend.csv'), 'utf8').catch(() => '')).split(/\r?\n/).filter(Boolean);
+          const header = (rows.shift() || '').split(',');
+          const tsAt = header.indexOf('ts'), costAt = header.indexOf('cost_usd');
+          const now = new Date();
+          let spend = 0, jobs = 0;
+          if (tsAt >= 0 && costAt >= 0) for (const row of rows) {
+            const cells = row.split(','), at = new Date(cells[tsAt]), cost = Number(cells[costAt]);
+            if (at.getFullYear() === now.getFullYear() && at.getMonth() === now.getMonth() && Number.isFinite(cost)) { spend += cost; jobs++; }
+          }
+          return json(response, 200, { project: path.basename(repo), spend: Math.round(spend * 100) / 100, cap, jobs });
+        }
         if (method === 'GET' && url.pathname === '/api/projects') {
           const matches = await projects.detect(url.searchParams.get('path') || repo);
           return json(response, 200, { matches, adapters: projects.adapters.map(item => ({ id: item.id, label: item.label })) });
@@ -304,7 +319,7 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
       if (!info.isFile()) throw new Error('File not found');
       await serveFile(request, response, file, info, {
         'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
-        'Content-Security-Policy': `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: ${files.origin}; media-src 'self' blob: ${files.origin}; connect-src 'self' ws://127.0.0.1:* ${files.origin}; frame-src ${files.origin}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'`,
+        'Content-Security-Policy': `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: ${files.origin}; media-src 'self' blob: ${files.origin}; connect-src 'self' blob: ws://127.0.0.1:* ${files.origin}; frame-src ${files.origin}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'`,
       });
     } catch (error) { if (!response.headersSent) json(response, error.status || 400, { error: publicError(error) }); }
   });

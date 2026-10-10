@@ -15,32 +15,32 @@ html[data-theme-switching] *,html[data-theme-switching] *::before,html[data-them
 
 html[data-workspace-theme=light]{
   color-scheme:light;background:#fff;
-  --bg:#f7f8fa;--bg-deep:#eef0f4;--surface-1:#fff;--surface-2:#f0f2f6;--surface-3:#e8ebf1;
-  --surface-solid:#fff;--sidebar-glass:#fff;--topbar-glass:#fffffff2;
-  --text:#232735;--text-bright:#111521;--text-dim:#505b70;--text-muted:#626d81;
-  --pink:#98445e;--pink-bright:#7e3049;--purple:#6b48a4;--green:#216c45;--amber:#80541b;--blue:#245c9e;--red:#b13643;
-  --pink-dim:#98445e0f;--purple-dim:#6b48a412;--green-dim:#216c4512;--amber-dim:#80541b12;--red-dim:#b1364312;
-  --hairline:#202a4017;--hairline-strong:#202a4030;
-  --edge:linear-gradient(135deg,#98445e40,#6b48a428 45%,#202a4017 80%);
-  --edge-soft:linear-gradient(135deg,#202a4030,#202a4014);
-  --edge-amber:linear-gradient(135deg,#80541b60,#98445e30 60%,#202a4017);
+  --bg:#f4f0ea;--bg-deep:#ebe5dc;--surface-1:#fbf8f3;--surface-2:#efe9e1;--surface-3:#e6dfd5;
+  --surface-solid:#fbf8f3;--sidebar-glass:#f8f4ee;--topbar-glass:#f8f4eef2;
+  --text:#2a231e;--text-bright:#15110e;--text-dim:#5e5249;--text-muted:#776a60;
+  --servo:#b8321f;--servo-bright:#952514;--chrome:#5b666c;--nutrient:#8a6418;--oxblood:#a3283f;--flesh:#6e5c50;--pink:#b8321f;--pink-bright:#952514;--purple:#5b666c;--green:#216c45;--amber:#8a6418;--blue:#245c9e;--red:#a3283f;
+  --pink-dim:#b8321f0f;--purple-dim:#5b666c12;--green-dim:#216c4512;--amber-dim:#80541b12;--red-dim:#b1364312;
+  --hairline:#3a2c2217;--hairline-strong:#3a2c2230;
+  --edge:linear-gradient(135deg,#b8321f40,#5b666c28 45%,#3a2c2217 80%);
+  --edge-soft:linear-gradient(135deg,#3a2c2230,#3a2c2214);
+  --edge-amber:linear-gradient(135deg,#80541b60,#b8321f30 60%,#3a2c2217);
   --shadow-1:0 2px 10px #1821360a;--shadow-2:0 8px 28px #18213618;
-  --glow-pink:0 0 20px #98445e08;--glow-pink-strong:0 0 28px #98445e14;--glow-amber:0 0 24px #80541b0a;
-  --focus-ring:0 0 0 2px #98445e70;
-  --mak-bg:#fff;--mak-surface:#f5f6f9;--mak-border:#202a4020;--mak-text:#232735;--mak-muted:#505b70;--mak-accent:#98445e;
+  --glow-pink:0 0 20px #b8321f08;--glow-pink-strong:0 0 28px #b8321f14;--glow-amber:0 0 24px #80541b0a;
+  --focus-ring:0 0 0 2px #b8321f70;
+  --mak-bg:#fff;--mak-surface:#f5f6f9;--mak-border:#3a2c2220;--mak-text:#312b27;--mak-muted:#6c5e54;--mak-accent:#b8321f;
 }
-html[data-workspace-theme=light] *{scrollbar-color:#99a2b3 #edf0f4!important}
+html[data-workspace-theme=light] *{scrollbar-color:#b0a49c #edf0f4!important}
 html[data-workspace-theme=light] ::-webkit-scrollbar-track,html[data-workspace-theme=light] ::-webkit-scrollbar-corner{background:#edf0f4}
-html[data-workspace-theme=light] ::-webkit-scrollbar-thumb{background:#99a2b3;border-color:#edf0f4}
+html[data-workspace-theme=light] ::-webkit-scrollbar-thumb{background:#b0a49c;border-color:#edf0f4}
 html[data-workspace-theme=light] body::before,html[data-workspace-theme=light] body::after{opacity:0}
 html[data-workspace-theme=light] .workspace-root{background:var(--bg);color:var(--text)}
 html[data-workspace-theme=light] .content{background:var(--bg)}
 html[data-workspace-theme=light] .report-frame,html[data-workspace-theme=light] .file-preview-body iframe{background:#fff;color-scheme:light}
 html[data-workspace-theme=light] .workspace-root .sidebar{box-shadow:20px 0 60px #18213614}
 html[data-workspace-theme=light] .app-layout .step-tab{border-color:var(--hairline);color:var(--text-dim)}
-html[data-workspace-theme=light] .app-layout .step-tab.active{border-color:#98445e50;background:var(--pink-dim);color:var(--pink-bright)}
+html[data-workspace-theme=light] .app-layout .step-tab.active{border-color:var(--servo);background:var(--servo);color:#fff}
 html[data-workspace-theme=light] .home .entity-card{background:#fff;border-color:var(--hairline-strong);box-shadow:var(--shadow-1)}
-html[data-workspace-theme=light] .home .entity-card:hover{background:#fff;border-color:#98445e60;box-shadow:var(--shadow-2)}
+html[data-workspace-theme=light] .home .entity-card:hover{background:#fff;border-color:#b8321f60;box-shadow:var(--shadow-2)}
 html[data-workspace-theme=light] .home .entity-card .card-desc{color:var(--text-dim)}
 html[data-workspace-theme=light] .home .entity-card .card-foot{color:var(--text-muted);border-color:var(--hairline)}
 html[data-workspace-theme=light] .report-document,html[data-workspace-theme=light] .report-document>.report-loading,
@@ -60,7 +60,7 @@ html[data-workspace-theme=light] .report-error-actions button{background:#f1f3f7
 html[data-workspace-theme=light] .report-error details{color:var(--text-dim)}
 html[data-workspace-theme=light] .document-toolbar,html[data-workspace-theme=light] .file-preview>header{border-color:var(--hairline-strong);background:#fafbfc;color:var(--text)}
 html[data-workspace-theme=light] .document-toolbar button{color:var(--text-dim);background:#fff;border-color:var(--hairline-strong)}
-html[data-workspace-theme=light] .document-toolbar button[aria-pressed=true],html[data-workspace-theme=light] .document-save:not(:disabled){background:var(--pink-dim);color:var(--pink-bright);border-color:#98445e50}
+html[data-workspace-theme=light] .document-toolbar button[aria-pressed=true],html[data-workspace-theme=light] .document-save:not(:disabled){background:var(--pink-dim);color:var(--pink-bright);border-color:#b8321f50}
 html[data-workspace-theme=light] .file-preview-body>pre{background:#fff;color:var(--text)}
 html[data-workspace-theme=light] .file-preview>header small{color:var(--text-muted)}
 html[data-workspace-theme=light] .report-image{background:#f2f4f7;color:var(--text)}
@@ -82,7 +82,7 @@ html[data-workspace-theme=light] :is(.settings-scroll select,.file-path,.mcp-fil
 html[data-workspace-theme=light] :is(.file-mode,.mcp-server){background:#f5f6f9;border-color:var(--hairline)}
 html[data-workspace-theme=light] :is(.file-mode button,.file-shortcuts button,.skill-locations button,.mcp-filters label){color:var(--text-dim)}
 html[data-workspace-theme=light] :is(.file-shortcuts button,.skill-locations button,.mcp-check button){background:#fff;border-color:var(--hairline-strong)}
-html[data-workspace-theme=light] :is(.file-row.selected,.file-mode button.selected,.skill-locations button[aria-pressed=true]){background:var(--pink-dim);color:var(--pink-bright);border-color:#98445e50}
+html[data-workspace-theme=light] :is(.file-row.selected,.file-mode button.selected,.skill-locations button[aria-pressed=true]){background:var(--pink-dim);color:var(--pink-bright);border-color:#b8321f50}
 html[data-workspace-theme=light] .file-row:hover{background:var(--surface-2)}
 html[data-workspace-theme=light] :is(.file-row>svg,.file-reveal,.file-path button,.mcp-provider,.mcp-sources button,.mcp-check button,.files-panel .mcp-footer button){color:var(--pink)}
 html[data-workspace-theme=light] .file-path input{color:var(--text)}
@@ -100,4 +100,4 @@ html[data-workspace-theme=light] :is(.voice-settings select,.voice-compose butto
 html[data-workspace-theme=light] :is(.voice-panel header,.voice-settings,.voice-compose,.voice-tabs,.mak-exchange,.activity-item){border-color:var(--hairline)}
 html[data-workspace-theme=light] .voice-tabs>button.selected{color:var(--pink);border-color:var(--pink)}
 html[data-workspace-theme=light] .voice-caption-toggle{color:var(--pink)!important;background:#fff;border-color:var(--hairline-strong)}
-html[data-workspace-theme=light] .desktop-error{background:#fff1f2;color:#8b283d;border-color:#d09aa5}
+html[data-workspace-theme=light] .desktop-error{background:#fff1f2;color:#66574d;border-color:#bfb3ab}

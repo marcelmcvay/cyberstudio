@@ -1,0 +1,104 @@
+/* Review views in the menu, card heroes and arrival markers. Uses the shared
+   tokens only, so it follows the workspace theme. */
+
+.sidebar-views {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  margin: 0 12px 4px;
+  padding: 3px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+}
+.sidebar-views button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 8px;
+  white-space: nowrap;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-dim);
+  font: 500 0.72rem var(--font-body);
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.sidebar-views button:hover { color: var(--text); background: var(--surface-2); }
+.sidebar-views button.on {
+  color: var(--text-bright);
+  background: linear-gradient(var(--surface-3), var(--surface-2));
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+.sidebar-views button:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* Hero thumbnails in the default list. */
+.item-icon img.item-hero {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: #f4f3f1;
+}
+
+/* Rows in a review view: a larger thumbnail and the tab it opens. */
+.view-item { padding: 6px 8px; gap: 9px; }
+.view-thumb {
+  flex: 0 0 52px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: #f4f3f1;
+  font-size: 0.9rem;
+}
+.view-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.view-item .item-text { display: flex; flex-direction: column; gap: 1px; line-height: 1.25; }
+.view-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.view-item small { font-size: 0.64rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.view-item.missing { opacity: 0.45; }
+.view-item.missing .view-thumb img { filter: grayscale(1); }
+.view-item.missing:hover { opacity: 0.8; }
+
+.view-new {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  font: 600 0.58rem var(--font-body);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--bg-deep);
+  background: var(--servo);
+}
+.view-new-count { color: var(--servo-bright); }
+.view-item.fresh .view-thumb,
+.mak-card.fresh .card-hero { animation: view-arrive 1.6s var(--ease) 3; }
+@keyframes view-arrive {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  40% { box-shadow: 0 0 0 2px var(--servo), 0 0 18px rgba(255, 70, 54, 0.35); }
+}
+
+/* Card hero: the card's newest whole-object image. */
+.entity-card.has-hero { padding-top: 10px; }
+.card-hero {
+  position: relative;
+  margin: 0 -6px 2px;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: #f4f3f1;
+}
+.card-hero img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.card-hero .view-new { position: absolute; top: 8px; right: 8px; }
+
+.view-hero { gap: 0; }
+.view-missing { margin: 10px 2px 0; font-size: 0.74rem; color: var(--text-muted); line-height: 1.6; }
+
+@media (prefers-reduced-motion: reduce) {
+  .view-item.fresh .view-thumb,
+  .mak-card.fresh .card-hero { animation: none; box-shadow: 0 0 0 2px var(--servo); }
+}

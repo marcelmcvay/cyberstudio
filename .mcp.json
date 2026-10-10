@@ -2,10 +2,24 @@
   "mcpServers": {
     "blender": {
       "command": "uvx",
-      "args": ["mcp-for-blender@2.1.9"],
+      "args": [
+        "mcp-for-blender@2.1.9"
+      ],
       "env": {
         "BLENDER_HOST": "localhost",
         "BLENDER_PORT": "9876",
+        "BLENDER_MCP_DISABLE_TELEMETRY": "true"
+      }
+    },
+    "blender-strix": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "\"$HOME/cyberstudio/scripts/strix\" tunnel >&2 && exec uvx mcp-for-blender@2.1.9"
+      ],
+      "env": {
+        "BLENDER_HOST": "localhost",
+        "BLENDER_PORT": "9877",
         "BLENDER_MCP_DISABLE_TELEMETRY": "true"
       }
     }

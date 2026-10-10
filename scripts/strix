@@ -8,6 +8,7 @@
 #                                        run a Blender script headless on the GPU
 #                                        (uploads file.py; extra args go after "--")
 #   scripts/strix pull                   git pull the kit and project repos there
+#   scripts/strix tunnel [port]          forward Mac :9877 to Blender MCP on the Strix
 # Needs a `Host strix` entry in ~/.ssh/config. Remote paths are relative to C:\Users\<user>.
 set -euo pipefail
 HOST="${STRIX_HOST:-strix}"
@@ -53,6 +54,14 @@ blender -b --factory-startup --python "inbox/$name" -- $* 2>&1 | grep -v -e '^Fr
 echo "blender exit \${PIPESTATUS[0]} in \$(( \$(date +%s) - start ))s"
 EOF
     ;;
+  tunnel)
+    # Forward Mac :9877 to the Strix Blender MCP add-on (127.0.0.1:9876 there).
+    # Idempotent: reuses a live tunnel. `.mcp.json` "blender-strix" calls this.
+    port="${1:-9877}"
+    if nc -z 127.0.0.1 "$port" 2>/dev/null; then echo "tunnel up on :$port"; exit 0; fi
+    ssh -f -N -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -L "$port:127.0.0.1:9876" "$HOST"
+    echo "tunnel up on :$port -> $HOST:9876"
+    ;;
   pull)
     remote_bash <<'EOF'
 for r in cyberstudio cyberstudio-projects/vec-factory-proto; do
@@ -60,5 +69,5 @@ for r in cyberstudio cyberstudio-projects/vec-factory-proto; do
 done
 EOF
     ;;
-  *) sed -n '2,13p' "$0"; exit 1 ;;
+  *) sed -n '2,14p' "$0"; exit 1 ;;
 esac

@@ -539,10 +539,12 @@ html[data-workspace-theme=light] .content { background-image: none; }
   border: none;
   background: #0e0c0b;
   color-scheme: dark;
-  visibility: hidden;
+  /* Fade in with opacity only. A frame laid out under visibility: hidden never
+     registers its scroll area in WebKit, so the mouse wheel stops working. The
+     loading cover blocks input until the report is ready. */
   opacity: 0;
 }
-.report-frame.loaded { visibility: visible; opacity: 1; }
+.report-frame.loaded { opacity: 1; }
 
 /* ─── Home (витрина) ─── */
 .home {

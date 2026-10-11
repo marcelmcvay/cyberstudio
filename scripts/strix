@@ -15,6 +15,12 @@ HOST="${STRIX_HOST:-strix}"
 JOBS="cyberstudio-jobs"
 SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST")
 BASH_EXE='& "C:\Program Files\Git\bin\bash.exe" -s'
+# Repos mirrored on the Strix: the kit plus the active project (CYBERSTUDIO_PROJECT_ROOT
+# in the kit .env), at the same path relative to the home folder on both machines.
+KIT="$(cd "$(dirname "$0")/.." && pwd)"
+PROJECT_ROOT="${CYBERSTUDIO_PROJECT_ROOT:-$(grep -E '^CYBERSTUDIO_PROJECT_ROOT=' "$KIT/.env" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"')}"
+REPOS="${KIT#$HOME/}"
+[ -n "$PROJECT_ROOT" ] && [ "${PROJECT_ROOT#$HOME/}" != "$PROJECT_ROOT" ] && REPOS="$REPOS ${PROJECT_ROOT#$HOME/}"
 
 # Windows PowerShell 5.1 is the SSH shell, and it mangles quoting. Everything
 # runs in Git Bash with the script on stdin, so nothing is re-parsed.
@@ -23,14 +29,14 @@ remote_bash() { "${SSH[@]}" "$BASH_EXE" | tr -d '\r'; }
 cmd="${1:-status}"; shift || true
 case "$cmd" in
   status)
-    remote_bash <<'EOF'
+    { echo "REPOS='$REPOS'"; cat <<'EOF'; } | remote_bash
 echo "host     $(hostname) ($(whoami))"
 nvidia-smi --query-gpu=name,driver_version,memory.used,memory.total,temperature.gpu --format=csv,noheader 2>/dev/null | sed 's/^/gpu      /'
 echo "git      $(git --version | cut -d' ' -f3)"
 echo "node     $(node --version 2>/dev/null)"
 echo "claude   $(claude --version 2>/dev/null)"
 echo "blender  $(blender --version 2>/dev/null | head -1)"
-for r in cyberstudio cyberstudio-projects/vec-factory-proto; do echo "repo     $r @ $(git -C ~/$r log --oneline -1 2>/dev/null)"; done
+for r in $REPOS; do echo "repo     $r @ $(git -C ~/$r log --oneline -1 2>/dev/null)"; done
 EOF
     ;;
   sh) remote_bash ;;
@@ -62,15 +68,15 @@ EOF
     # A tunnel left over from another network can still hold the local port.
     # Reuse it only if the Strix answers right now; otherwise replace it.
     if pgrep -f -- "$fwd" >/dev/null; then
-      if "${SSH[@]}" exit 2>/dev/null; then echo "tunnel up on :$port"; exit 0; fi
+      if "${SSH[@]}" exit </dev/null 2>/dev/null; then echo "tunnel up on :$port"; exit 0; fi
       pkill -f -- "$fwd"; sleep 1
     fi
     ssh -f -N -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=2 $fwd "$HOST"
     echo "tunnel up on :$port -> $HOST:9876"
     ;;
   pull)
-    remote_bash <<'EOF'
-for r in cyberstudio cyberstudio-projects/vec-factory-proto; do
+    { echo "REPOS='$REPOS'"; cat <<'EOF'; } | remote_bash
+for r in $REPOS; do
   printf '%s: ' "$r"; timeout 120 git -C ~/$r pull -q --ff-only < /dev/null && git -C ~/$r log --oneline -1
 done
 EOF

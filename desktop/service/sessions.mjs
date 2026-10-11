@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { mkdir, stat } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import pty from 'node-pty';
 import headless from '@xterm/headless';
@@ -19,6 +20,19 @@ const publicSession = session => {
   const { id, name, agent, cwd, bypass, effort, status, createdAt, lastOutputAt, lastInputAt, exitCode, nativeId, attention, activity, unread, completionVersion, lastCompletedId, cols, rows, open, pinned, tabOrder, tabColor, updatedAt, preview, hasConversation, restoreError } = session;
   return { id, name, agent, cwd, bypass, effort, status, createdAt, lastOutputAt, lastInputAt, exitCode, nativeId, attention, activity, unread, completionVersion, lastCompletedId, cols, rows, open, pinned, tabOrder, tabColor, updatedAt, preview, hasConversation, restoreError };
 };
+
+// Resolve a typed working folder: expand a leading ~ and explain a missing path.
+export async function workingFolder(input, base, home = os.homedir()) {
+  const typed = String(input || '').trim();
+  const expanded = typed === '~' ? home : /^~[\\/]/.test(typed) ? path.join(home, typed.slice(2)) : typed;
+  const cwd = path.resolve(base, expanded || base);
+  const info = await stat(cwd).catch(error => {
+    if (error.code === 'ENOENT' || error.code === 'ENOTDIR') throw Object.assign(new Error(`That folder doesn't exist: ${cwd}`), { status: 400 });
+    throw error;
+  });
+  if (!info.isDirectory()) throw Object.assign(new Error(`That path is a file, not a folder: ${cwd}`), { status: 400 });
+  return cwd;
+}
 
 export class Sessions extends EventEmitter {
   constructor(repo, stateDir) {
@@ -88,8 +102,7 @@ export class Sessions extends EventEmitter {
     if (this.active().length >= 80) throw new Error('Close a tab before opening another (80 open tab limit). Closed chats remain in History.');
     const agent = String(options.agent || 'codex');
     if (options.effort && !workerEfforts.includes(options.effort)) throw new Error('Reasoning effort must be medium, high, xhigh or max.');
-    const cwd = path.resolve(options.cwd || this.repo);
-    if (!(await stat(cwd)).isDirectory()) throw new Error('Working folder must be a directory');
+    const cwd = await workingFolder(options.cwd, this.repo);
     const now = new Date().toISOString();
     const session = this.make({
       id: randomUUID(), agent, name: englishTitle(options.name, `Conversation ${this.items.size + 1}`),
@@ -111,8 +124,7 @@ export class Sessions extends EventEmitter {
   async importConversation({ agent, nativeId, name, cwd, pinned = false, bypass = false }) {
     if (!['codex', 'claude', 'opencode', 'kimi'].includes(agent) || typeof nativeId !== 'string' || !nativeId.trim()) throw new Error('Choose an agent and its native conversation ID.');
     nativeId = nativeId.trim();
-    cwd = path.resolve(cwd || this.repo);
-    if (!(await stat(cwd)).isDirectory()) throw new Error('Working folder must be a directory');
+    cwd = await workingFolder(cwd, this.repo);
     const existing = [...this.items.values()].find(item => item.agent === agent && item.nativeId === nativeId);
     if (existing) { existing.name = englishTitle(name, existing.name); existing.pinned = pinned; this.changed(existing); await this.persist(); return publicSession(existing); }
     const now = new Date().toISOString();
@@ -398,6 +410,15 @@ export class Sessions extends EventEmitter {
     setTimeout(() => { try { if (session.process === proc) proc.kill(); } catch { /* Process already exited. */ } }, 3500).unref();
   }
   async resume(id, nativeId) {
+    try { return await this.resumeTerminal(id, nativeId); }
+    catch (error) {
+      // An open tab shows why its terminal did not start, instead of a pending state.
+      const session = this.items.get(id);
+      if (session?.open && !session.process && !this.closed) { session.restoreError = error.message; session.status = 'stopped'; this.changed(session); }
+      throw error;
+    }
+  }
+  async resumeTerminal(id, nativeId) {
     if (this.closed) throw new Error('CyberStudio is shutting down');
     const session = this.get(id);
     if (session.stopping) await session.stopping;

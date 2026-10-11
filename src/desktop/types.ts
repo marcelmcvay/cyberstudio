@@ -1,5 +1,5 @@
 export type AgentId = 'codex' | 'claude' | 'strix' | 'opencode' | 'kimi' | 'shell'
-export interface AgentInfo { id: AgentId; label: string; color: string; available: boolean; subscription: boolean }
+export interface AgentInfo { id: AgentId; label: string; color: string; available: boolean; subscription: boolean; command?: string }
 export interface ChatSession {
   id: string; name: string; agent: AgentId; cwd: string; bypass: boolean
   effort?: 'medium' | 'high' | 'xhigh' | 'max'

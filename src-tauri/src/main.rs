@@ -342,6 +342,9 @@ fn main() {
         }).build(tauri::generate_context!());
     match result {
         Ok(app) => app.run(|app, event| {
+            // A Dock click with every window hidden brings Chats back.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { has_visible_windows: false, .. } = event { recall_open_windows(app); }
             if let tauri::RunEvent::Exit = event {
                 #[cfg(windows)]
                 if let Some(shortcut) = app.try_state::<win_key::WinKeyShortcut>() { shortcut.shutdown(); }

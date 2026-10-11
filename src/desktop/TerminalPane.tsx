@@ -6,6 +6,7 @@ import '@xterm/xterm/css/xterm.css'
 import { api, onServiceEvent, pickFiles, reportError, sendEvent, uploadImage } from './client'
 import { Icon } from './Icons'
 import type { AgentId } from './types'
+import { fileManager, pasteKey } from './platform'
 import { decorateTerminal, focusTheme, originalTheme, type TerminalAppearance } from './terminalAppearance'
 
 export default function TerminalPane({ id, agent, fontSize, appearance, onAttachmentStatus }: { id: string; agent: AgentId; fontSize: number; appearance: TerminalAppearance; onAttachmentStatus: (id: string, text: string) => void }) {
@@ -133,6 +134,12 @@ export default function TerminalPane({ id, agent, fontSize, appearance, onAttach
       // Leave paste to the DOM clipboard event; do not send Ctrl+V to the CLI.
       if (event.ctrlKey && (event.code === 'KeyV' || event.key.toLowerCase() === 'v')) return false
       if ((event.ctrlKey && event.code === 'Tab') || (event.ctrlKey && event.shiftKey && ['KeyP', 'KeyT', 'KeyH', 'KeyW'].includes(event.code)) || (event.altKey && /^Digit[1-9]$/.test(event.code))) return false
+      // Cmd+K clears scrollback, as in macOS terminals. The conversation is unchanged.
+      if (event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && event.code === 'KeyK') {
+        event.preventDefault()
+        if (!event.repeat) api(`/sessions/${id}/clear`, {}).catch(reportError)
+        return false
+      }
       return true
     })
     // Agent TUIs can enable mouse reporting even in the normal buffer. Keep
@@ -171,7 +178,7 @@ export default function TerminalPane({ id, agent, fontSize, appearance, onAttach
   useEffect(() => {
     if (terminalRef.current) { terminalRef.current.options.fontSize = fontSize; fitRef.current?.fit(); sendEvent({ type: 'resize', id, cols: terminalRef.current.cols, rows: terminalRef.current.rows }) }
   }, [fontSize, id])
-  return <div ref={area} className={`terminal-area ${appearance === 'focus' ? 'terminal-focus' : ''}`} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = 'none' }} onDrop={event => { event.preventDefault(); event.stopPropagation(); setDragging(false); reportError('Drop original files or folders from Explorer into CyberStudio Desktop. Paste clipboard images with Ctrl+V.') }}>
+  return <div ref={area} className={`terminal-area ${appearance === 'focus' ? 'terminal-focus' : ''}`} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = 'none' }} onDrop={event => { event.preventDefault(); event.stopPropagation(); setDragging(false); reportError(`Drop original files or folders from ${fileManager} into CyberStudio Desktop. Paste clipboard images with ${pasteKey}.`) }}>
     <div ref={host} className="terminal-host" aria-label="Interactive agent terminal" />
     {dragging && <div className="terminal-drop"><Icon name="attach" size={30} /><strong>Drop to insert paths</strong><span>Files, folders and images</span></div>}
   </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Scene3DManifest, Scene3DModel } from '../types'
 import { ModelViewer, type PlacedStats, type ShadingMode } from '../lib/three/viewer'
+import { ignoreViewerKey } from '../lib/viewerKeys'
 
 /**
  * Scene card: several GLBs placed in one three.js scene at real scale.
@@ -49,6 +50,9 @@ export default function Scene3D({ manifestUrl }: { manifestUrl: string }) {
   const [spin, setSpin] = useState(false)
   const [drawCalls, setDrawCalls] = useState(0)
   const [totalMs, setTotalMs] = useState<number | null>(null)
+  // The per-model rows can be folded to the total line; the choice is remembered.
+  const [rowsHidden, setRowsHidden] = useState(() => { try { return localStorage.getItem('mak.s3dRows') === 'hidden' } catch { return false } })
+  const toggleRows = () => setRowsHidden(v => { try { localStorage.setItem('mak.s3dRows', v ? 'shown' : 'hidden') } catch { /* stays for this view */ } return !v })
 
   useEffect(() => {
     let cancelled = false
@@ -141,9 +145,7 @@ export default function Scene3D({ manifestUrl }: { manifestUrl: string }) {
   // Number keys pick a camera, T/C/W pick shading, R resets, Space spins.
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
-      const t = ev.target as HTMLElement | null
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable))
-        return
+      if (ignoreViewerKey(ev)) return
       const n = Number(ev.key)
       const m = MODES.find(x => x.key === ev.key.toLowerCase())
       if (n >= 1 && n <= cameras.length) goCamera(n - 1)
@@ -193,6 +195,7 @@ export default function Scene3D({ manifestUrl }: { manifestUrl: string }) {
                 <button
                   key={c.id}
                   className={`c3d-mode${camIndex === i ? ' active' : ''}`}
+                  aria-pressed={camIndex === i}
                   onClick={() => goCamera(i)}
                   title={`${c.label}  ·  ${i + 1}`}
                 >
@@ -207,6 +210,7 @@ export default function Scene3D({ manifestUrl }: { manifestUrl: string }) {
               <button
                 key={m.id}
                 className={`c3d-mode${mode === m.id ? ' active' : ''}`}
+                aria-pressed={mode === m.id}
                 onClick={() => setMode(m.id)}
                 title={`${m.label}  ·  ${m.key.toUpperCase()}`}
               >
@@ -216,7 +220,7 @@ export default function Scene3D({ manifestUrl }: { manifestUrl: string }) {
           </div>
 
           <div className="c3d-tools">
-            <button className={`c3d-toggle${spin ? ' on' : ''}`} onClick={() => setSpin(v => !v)} title="Orbit the scene (Space)">
+            <button className={`c3d-toggle${spin ? ' on' : ''}`} aria-pressed={spin} onClick={() => setSpin(v => !v)} title="Orbit the scene (Space)">
               Spin
             </button>
             <button className="c3d-toggle" onClick={reset} title="Back to the current camera preset (R)">
@@ -237,9 +241,18 @@ export default function Scene3D({ manifestUrl }: { manifestUrl: string }) {
                 </div>
               )}
 
-              <div className="s3d-readout" aria-label="Load measurements">
+              <div className={`s3d-readout${rowsHidden ? ' rows-hidden' : ''}`} aria-label="Load measurements">
+                <button
+                  type="button"
+                  className="s3d-rows-toggle"
+                  onClick={toggleRows}
+                  aria-expanded={!rowsHidden}
+                  title={rowsHidden ? 'Show the per-model rows' : 'Fold to the total line'}
+                >
+                  {rowsHidden ? 'Show models' : 'Total only'}
+                </button>
                 <table>
-                  <thead>
+                  <thead hidden={rowsHidden}>
                     <tr>
                       <th>model</th>
                       <th>load</th>
@@ -249,7 +262,7 @@ export default function Scene3D({ manifestUrl }: { manifestUrl: string }) {
                       <th>pivot</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody hidden={rowsHidden}>
                     {manifest.models.map((model, i) => {
                       const row = rows[i]
                       return (

@@ -44,7 +44,8 @@ actions. Conversation recovery also depends on the selected CLI's native history
 ## Files and previews
 
 **Files** shows the actual project folders. Main folders is a focused view;
-All files shows the wider tree. Hover a folder to reveal its Explorer shortcut.
+All files shows the wider tree. Hover a folder to reveal its Finder (macOS) or
+Explorer (Windows) shortcut.
 Select a file to preview it. Images can be enlarged and downloaded, and Markdown
 opens with **Preview** and **Edit** modes. Save only when you want to change the file.
 
@@ -62,8 +63,9 @@ image saves it in `inbox/` and inserts that path. This gives the agent an input;
 it does not automatically publish or upload it to a service.
 
 Within Files, dragging a file to another project folder moves it; dropping it
-back in the same place does nothing. Delete moves a selected item to the Windows
-Recycle Bin. Use Explorer for folder moves and other full filesystem operations.
+back in the same place does nothing. Forward Delete (Fn+Delete on a Mac laptop)
+moves a selected item to the Trash, or to the Recycle Bin on Windows. Use Finder
+or Explorer for folder moves and other full filesystem operations.
 
 ## Skills and MCP: what is the difference?
 
@@ -99,16 +101,16 @@ The current choices are visible in Settings and in the agent or provider setup.
 
 ## Useful controls
 
-| Control | Behavior |
-| --- | --- |
-| Ctrl+C in an agent chat | Copy selected terminal text; it does not interrupt the agent |
-| Ctrl+Shift+C | Copy selected terminal text |
-| Ctrl+C in PowerShell | Normal shell interrupt behavior |
-| Ctrl+V in a chat | Paste text or a clipboard screenshot |
-| Ctrl+S while editing Markdown | Save the document |
-| Escape in an image preview | Close the enlarged image |
-| Optional Win-key recall | Bring back open CyberStudio windows; configurable in Settings |
-| Ctrl+Esc | Open Windows Start |
+| Windows | macOS | Behavior |
+| --- | --- | --- |
+| Ctrl+C in an agent chat | Cmd+C or Ctrl+C in an agent chat | Copy selected terminal text; it does not interrupt the agent |
+| Ctrl+Shift+C | Cmd+C | Copy selected terminal text |
+| Ctrl+C in PowerShell | Ctrl+C in Shell | Normal shell interrupt behavior |
+| Ctrl+V in a chat | Cmd+V in a chat | Paste text or a clipboard screenshot |
+| Ctrl+S while editing Markdown | Cmd+S while editing Markdown | Save the document |
+| Escape in an image preview | Escape in an image preview | Close the enlarged image |
+| Optional Win-key recall | Not available | Bring back open CyberStudio windows; configurable in Settings |
+| Ctrl+Esc | Not available | Open Windows Start |
 
 Settings also contains terminal text size and appearance, the default agent,
 new-chat permission defaults and voice choices. A CLI permission setting affects

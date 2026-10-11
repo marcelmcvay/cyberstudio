@@ -153,6 +153,13 @@ fn make_windows(app: &tauri::AppHandle, workspace: &str, chats: &str) -> Result<
         .title(format!("{} — Workspace", app.config().product_name.as_deref().unwrap_or("CyberStudio"))).inner_size((width - chat_width - 8.0).max(500.0), (height - 6.0).max(450.0))
         .position(x + chat_width + 6.0, y + 2.0).min_inner_size(500.0, 400.0)
         .theme(Some(tauri::Theme::Dark)).background_color(tauri::webview::Color(12, 13, 16, 255)).build()?;
+    // WKWebView follows the macOS Keyboard navigation setting, off by default, so
+    // plain Tab skips buttons and links. Let Tab reach every control in Workspace.
+    #[cfg(target_os = "macos")]
+    workspace_window.with_webview(|webview| unsafe {
+        let view: &objc2_web_kit::WKWebView = &*webview.inner().cast();
+        view.configuration().preferences().setTabFocusesLinks(true);
+    })?;
     let chats_window = WebviewWindowBuilder::new(app, "chats", WebviewUrl::External(chats.parse()?))
         .on_new_window(|url, _| external_links::open_popup(url))
         .visible(false)

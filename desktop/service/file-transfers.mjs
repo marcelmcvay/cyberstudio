@@ -63,7 +63,7 @@ export async function entryPath(value) {
 
 export async function recyclePath(value, repo) {
   const actual = await entryPath(value);
-  if (within(actual, repo)) throw invalid('The MR-MAK repository and its parent folders cannot be deleted here.');
+  if (within(actual, repo)) throw invalid('The project folder and its parent folders cannot be deleted here.');
   return actual;
 }
 

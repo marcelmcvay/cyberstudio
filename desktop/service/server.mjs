@@ -10,6 +10,7 @@ import { Files, serveFile } from './files.mjs';
 import { importFile, dragFiles, moveFile, recyclePath, MAX_FILE_BYTES } from './file-transfers.mjs';
 import { inventory } from './agents.mjs';
 import { Attachments, attachmentText, MAX_IMAGE_BYTES } from './attachments.mjs';
+import { intake, isInbox } from './intake.mjs';
 import { ContextLibrary } from './context.mjs';
 import { taskTitle } from './titles.mjs';
 import { taskEffort } from './effort.mjs';
@@ -168,7 +169,17 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
         const method = request.method;
         if (method === 'POST' && url.pathname === '/api/files/import') {
           if (Number(request.headers['content-length']) > MAX_FILE_BYTES) throw Object.assign(new Error('Choose files of 1 GB or less.'), { status: 413 });
-          const result = await importFile(request, url.searchParams.get('folder'), url.searchParams.get('name'));
+          const folder = url.searchParams.get('folder'), name = url.searchParams.get('name');
+          // Files dropped on the inbox itself become inbox/<id>/ with an asset.json sidecar.
+          if (await isInbox(repo, folder)) {
+            const added = await intake({ root: repo, sources: [{ stream: request, name }], title: url.searchParams.get('title') || undefined, from: url.searchParams.get('from') || undefined, tags: url.searchParams.get('tags') || undefined });
+            const file = path.join(repo, added.asset.files[0].path);
+            const result = { path: file, name: path.basename(file), size: added.asset.files[0].bytes, renamed: false, intake: { id: added.id, path: added.path, kind: added.asset.kind } };
+            await integrations.publish('artifact', { kind: 'imported', path: result.path, name: result.name, size: result.size });
+            broadcast('workspace-changed', {});
+            return json(response, 201, result);
+          }
+          const result = await importFile(request, folder, name);
           await integrations.publish('artifact', { kind: 'imported', ...result });
           broadcast('workspace-changed', {});
           return json(response, 201, result);
@@ -224,6 +235,14 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
           if (typeof data.requestId !== 'string' || !/^[a-f\d-]{36}$/i.test(data.requestId)) throw new Error('Invalid file picker request.');
           native({ type: 'pick-files', window: 'chats', requestId: data.requestId });
           return json(response, 200, { requested: true });
+        }
+        if (method === 'POST' && url.pathname === '/api/intake') {
+          if (typeof data.url !== 'string' || !data.url.trim()) throw Object.assign(new Error('Paste a Dropbox, Google Drive or other public link.'), { status: 400 });
+          const str = value => typeof value === 'string' && value.trim() ? value : undefined;
+          const added = await intake({ root: repo, sources: [{ url: data.url }], title: str(data.title), from: str(data.from), tags: Array.isArray(data.tags) ? data.tags.filter(tag => typeof tag === 'string') : str(data.tags) });
+          await integrations.publish('artifact', { kind: 'imported', path: added.asset.files[0] ? path.join(repo, added.asset.files[0].path) : added.path, name: added.id });
+          broadcast('workspace-changed', {});
+          return json(response, 201, { id: added.id, path: added.path, relative: added.relative, asset: added.asset });
         }
         if (method === 'POST' && url.pathname === '/api/files/drag') {
           const paths = await dragFiles(data.paths);

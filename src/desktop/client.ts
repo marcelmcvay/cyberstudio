@@ -60,7 +60,9 @@ export async function uploadImage(file: File): Promise<{ path: string; name: str
   if (!response.ok) throw new Error(value.error || 'Image could not be saved')
   return value
 }
-export async function uploadFile(file: File, folder: string): Promise<{ path: string; name: string; renamed: boolean }> {
+export type IntakeResult = { id: string; path: string; relative: string; asset: { kind: string; title: string; files: { path: string; bytes: number }[] } }
+export const addLink = (link: { url: string; title?: string; from?: string }) => api<IntakeResult>('/intake', link)
+export async function uploadFile(file: File, folder: string): Promise<{ path: string; name: string; renamed: boolean; intake?: { id: string; path: string; kind: string } }> {
   const response = await fetch(`/api/files/import?folder=${encodeURIComponent(folder)}&name=${encodeURIComponent(file.name)}`, {
     method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/octet-stream' }, body: file,
   })

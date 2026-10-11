@@ -53,7 +53,7 @@ test('file import and native drag use authenticated control and a selected folde
   const repo = await fixture(), events = [];
   const service = await createService({ repo, uiDir: path.join(repo, 'ui'), native: event => events.push(event) });
   try {
-    const folder = path.join(repo, 'inbox');
+    const folder = path.join(repo, 'drops'); await mkdir(folder);
     const endpoint = `${service.origin}/api/files/import?folder=${encodeURIComponent(folder)}&name=${encodeURIComponent('A space.txt')}`;
     const headers = { Authorization: `Bearer ${service.token}` };
     assert.equal((await fetch(endpoint, { method: 'POST', body: 'blocked' })).status, 401);
@@ -69,6 +69,16 @@ test('file import and native drag use authenticated control and a selected folde
     assert.equal(drag.status, 200);
     assert.deepEqual(events.at(-1), { type: 'drag-files', window: 'workspace', paths: [await realpath(file.path)] });
     assert.equal(await readFile(file.path, 'utf8'), 'Copied from Explorer');
+    // A drop on the inbox itself becomes inbox/<id>/ with an asset.json sidecar.
+    const inbox = path.join(repo, 'inbox');
+    const intake = await fetch(`${service.origin}/api/files/import?folder=${encodeURIComponent(inbox)}&name=${encodeURIComponent('Mood board.pdf')}`, { method: 'POST', headers, body: 'pdf bytes' });
+    assert.equal(intake.status, 201);
+    const added = await intake.json();
+    assert.equal(added.intake.id, 'mood-board');
+    assert.deepEqual(await readdir(path.join(inbox, 'mood-board')), ['Mood board.pdf', 'asset.json']);
+    const asset = JSON.parse(await readFile(path.join(inbox, 'mood-board', 'asset.json'), 'utf8'));
+    assert.equal(asset.kind, 'document'); assert.equal(asset.status, 'draft'); assert.equal(asset.provenance.origin, 'imported');
+    assert.equal(asset.files[0].path, 'inbox/mood-board/Mood board.pdf'); assert.equal(asset.files[0].bytes, 9);
   } finally { await service.close(); }
 });
 
@@ -102,6 +112,6 @@ test('internal drops move files, same-folder drops do nothing, collisions retain
   assert.equal(result.moved, true);
   assert.equal(await readFile(result.path, 'utf8'), 'Source bytes');
   assert.deepEqual(await readdir(folder), []);
-  await assert.rejects(recyclePath(repo, repo), /repository/);
+  await assert.rejects(recyclePath(repo, repo), /project folder/);
   assert.equal(await recyclePath(result.path, repo), result.path);
 });

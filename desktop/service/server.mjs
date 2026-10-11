@@ -23,6 +23,7 @@ import { body, equalSecret, json, publicError, readJson, realFile, saveJson, sec
 import { ProjectAdapterRegistry } from './project-adapters/registry.mjs';
 import { KnowledgeManager, MarkdownKnowledgeProvider } from './knowledge/providers.mjs';
 import { IntegrationManager } from './integrations/manager.mjs';
+import { Assets } from './assets.mjs';
 
 const listen = server => new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`)); });
 
@@ -32,6 +33,7 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
   const files = new Files(repo);
   const attachments = new Attachments(repo);
   const library = new ContextLibrary(repo);
+  const assets = new Assets(repo);
   const knowledgeSources = await readJson(path.join(stateDir, 'knowledge-sources.json'), []);
   const knowledgeProviders = (Array.isArray(knowledgeSources) ? knowledgeSources : []).filter(item => typeof item?.root === 'string').map(item => new MarkdownKnowledgeProvider(item.root, { id: item.id, label: item.label }));
   const knowledge = new KnowledgeManager(library, knowledgeProviders);
@@ -210,6 +212,13 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
           }
           return json(response, 200, { project: path.basename(repo), spend: Math.round(spend * 100) / 100, cap, jobs });
         }
+        if (method === 'GET' && url.pathname === '/api/assets') return json(response, 200, await assets.list());
+        const assetRoute = /^\/api\/assets\/([^/]+)$/.exec(url.pathname);
+        if (assetRoute) {
+          const id = decodeURIComponent(assetRoute[1]);
+          if (method === 'GET') return json(response, 200, await assets.read(id));
+          if (method === 'PATCH') { const asset = await assets.update(id, data); broadcast('workspace-changed', {}); return json(response, 200, asset); }
+        }
         if (method === 'GET' && url.pathname === '/api/projects') {
           const matches = await projects.detect(url.searchParams.get('path') || repo);
           return json(response, 200, { matches, adapters: projects.adapters.map(item => ({ id: item.id, label: item.label })) });
@@ -385,7 +394,7 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
       nativeMessage: event => nativeSettings.receive(event),
       async close() {
         if (closing) return; closing = true; mcp.close(); nativeSettings.close(); await files.writes.catch(() => {});
-      watcher?.close(); clearTimeout(restoreTimer); coordinator.close(); clearTimeout(settingsTimer); await saveSettings(); await transcriptSave; await quick.saves; await workspace.writes;
+      watcher?.close(); clearTimeout(restoreTimer); coordinator.close(); clearTimeout(settingsTimer); await saveSettings(); await transcriptSave; await quick.saves; await workspace.writes; await assets.writes.catch(() => {});
       for (const ws of wss.clients) ws.terminate();
       wss.close(); await sessions.close();
       server.closeAllConnections(); contentServer.closeAllConnections();

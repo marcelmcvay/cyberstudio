@@ -17,6 +17,7 @@ export function Nose({ size = 30, tone = 'pink' }: { size?: number; tone?: 'pink
 export function Icon({ name, size = 18, style }: { name: string; size?: number; style?: CSSProperties }) {
   const paths: Record<string, string> = {
     help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM9.1 8a3 3 0 0 1 5.8 1c0 2-3 2-3 4M12 17h.01',
+    properties: 'M4 3h16v18H4ZM4 8h16M8 12h2M13 12h4M8 16h2M13 16h4',
     mcp: 'M8 3v5M16 3v5M5 8h14v3a7 7 0 0 1-14 0ZM12 18v4',
     skills: 'M12 3 2 8l10 5 10-5ZM5 10v7l7 4 7-4v-7M22 8v7', settings: 'M4 6h16M4 12h16M4 18h16M8 3v6M16 9v6M10 15v6',
     link: 'M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1',

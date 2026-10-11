@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DragEvent, KeyboardEvent } from 'react'
-import { api, desktopState, reportError, setPreview, uploadFile, useDesktop, windowAction } from './client'
+import { addLink, api, desktopState, reportError, setPreview, uploadFile, useDesktop, windowAction } from './client'
 import type { FileEntry, Folder, Preview } from './types'
 import { Icon } from './Icons'
 import MarkdownDocument from '../components/MarkdownDocument'
@@ -115,6 +115,9 @@ export default function FilesRail() {
   const [revision, setRevision] = useState(0)
   const [dropTarget, setDropTarget] = useState('')
   const [copying, setCopying] = useState(false)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [link, setLink] = useState({ url: '', title: '', from: '' })
+  const [adding, setAdding] = useState(false)
   const copyLock = useRef(false)
   const internalDrag = useRef<{ path: string; directory: boolean; handled: boolean } | null>(null)
   const recycleLock = useRef(false)
@@ -171,13 +174,15 @@ export default function FilesRail() {
     if (files.some(file => file.size > 1024 * 1024 * 1024)) { setError('Choose files of 1 GB or less.'); return }
     copyLock.current = true; setCopying(true); setError(''); setDropTarget('')
     let count = 0, renamed = 0
+    const assets: string[] = []
     try {
       for (const file of files) {
         setStatus(`Copying ${count + 1} of ${files.length} to ${fileName(folder)}…`)
         const result = await uploadFile(file, folder)
         count++; if (result.renamed) renamed++
+        if (result.intake) assets.push(result.intake.id)
       }
-      setStatus(`Copied ${count} ${count === 1 ? 'file' : 'files'} to ${fileName(folder)}.${renamed ? ' Existing files kept; copies renamed.' : ''}`)
+      setStatus(assets.length ? `Added ${assets.length} inbox ${assets.length === 1 ? 'asset' : 'assets'}: ${assets.join(', ')}.` : `Copied ${count} ${count === 1 ? 'file' : 'files'} to ${fileName(folder)}.${renamed ? ' Existing files kept; copies renamed.' : ''}`)
     } catch (error) { setError(message(error)); setStatus(count ? `Copied ${count} of ${files.length} files before the error.` : '') }
     finally {
       copyLock.current = false; setCopying(false); setSelected(folder); setDestination(folder)
@@ -203,6 +208,19 @@ export default function FilesRail() {
     if (Array.from(event.dataTransfer.items).some(item => item.webkitGetAsEntry?.()?.isDirectory)) { setError('Drop individual files into a folder. Folder transfers are available in Explorer.'); return }
     await copy(Array.from(event.dataTransfer.files), folder)
   }, [copy, refresh])
+  const inbox = `${repo}/inbox`
+  const openInbox = (select = inbox) => { setMode('main'); navigate(repo); setExpanded(current => new Set([...current, pathKey(inbox)])); setSelected(select); setDestination(inbox) }
+  const submitLink = async () => {
+    if (adding || !link.url.trim()) return
+    setAdding(true); setError(''); setStatus('Downloading link into the inbox…')
+    try {
+      const result = await addLink({ url: link.url.trim(), title: link.title.trim() || undefined, from: link.from.trim() || undefined })
+      setStatus(`Added ${result.relative} · ${result.asset.kind} · ${result.asset.files.length} ${result.asset.files.length === 1 ? 'file' : 'files'}.`)
+      setLink(current => ({ url: '', title: '', from: current.from }))
+      openInbox(result.path); refresh()
+    } catch (error) { setError(message(error)); setStatus('') }
+    finally { setAdding(false) }
+  }
   const deleteKey = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'Delete') { treeKeys(event); return }
     event.preventDefault(); event.stopPropagation()
@@ -238,16 +256,23 @@ export default function FilesRail() {
     {open && panel === 'settings' && <WorkspaceSettings onClose={() => setOpen(false)} />}
     {open && panel === 'mcp' && <McpPanel onClose={() => setOpen(false)} />}
     {open && (panel === 'files' || panel === 'skills') && <div className="files-panel"><header><h2>{panel === 'skills' ? 'Skills' : 'Files'}</h2><div>
+      {panel === 'files' && <button className={`desk-icon ${linkOpen ? 'active' : ''}`} onClick={() => setLinkOpen(!linkOpen)} title="Add a Dropbox, Drive or web link to the inbox" aria-label="Add link" aria-expanded={linkOpen}><Icon name="link" size={15} /></button>}
       <button className="desk-icon" disabled={copying} onClick={() => input.current?.click()} title={`Copy files into ${fileName(destination)}`} aria-label="Add files"><Icon name="plus" size={16} /></button>
       <button className="desk-icon" onClick={refresh} title="Refresh files"><Icon name="refresh" size={15} /></button><button className="desk-icon" onClick={() => setOpen(false)} title="Collapse files"><Icon name="close" size={17} /></button>
     </div></header>
       <input ref={input} type="file" multiple hidden onChange={event => { void copy(Array.from(event.target.files || []), destination); event.target.value = '' }} />
       {panel === 'files' ? <><div className="file-mode"><button className={mode === 'main' ? 'selected' : ''} onClick={() => { setMode('main'); navigate(repo) }}>Main folders</button><button className={mode === 'all' ? 'selected' : ''} onClick={() => setMode('all')}>All files</button></div>
-      <div className="file-shortcuts">{['inbox', 'projects', 'workspace', 'knowledge', 'processes'].map(name => <button key={name} {...dropProps(`${repo}/${name}`)} className={dropTarget === pathKey(`${repo}/${name}`) ? 'drop-target' : ''} onClick={() => { navigate(repo); const path = `${repo}/${name}`; setExpanded(current => new Set([...current, pathKey(path)])); setSelected(path); setDestination(path) }}><Icon name="folder" size={14} />{name}</button>)}</div></> : <div className="skill-locations">{[['Claude', '.claude/skills'], ['Codex', '.agents/skills'], ['Knowledge', 'knowledge'], ['Processes', 'processes']].map(([label, path]) => <button key={path} aria-pressed={pathKey(root) === pathKey(`${repo}/${path}`)} onClick={() => { setMode('all'); navigate(`${repo}/${path}`) }}>{label}</button>)}<p>Project skills · open a SKILL.md to read or edit.</p></div>}
+      <div className="file-shortcuts">{['inbox', 'projects', 'workspace', 'knowledge', 'processes'].map(name => <button key={name} {...dropProps(`${repo}/${name}`)} title={name === 'inbox' ? 'Drop files here to add them as inbox assets' : undefined} className={dropTarget === pathKey(`${repo}/${name}`) ? 'drop-target' : ''} onClick={() => { navigate(repo); const path = `${repo}/${name}`; setExpanded(current => new Set([...current, pathKey(path)])); setSelected(path); setDestination(path) }}><Icon name="folder" size={14} />{name}</button>)}</div>
+      {linkOpen && <form className="link-intake" onSubmit={event => { event.preventDefault(); void submitLink() }}>
+        <label htmlFor="link-intake-url">Add link · inbox</label>
+        <div className="link-intake-row"><input id="link-intake-url" value={link.url} onChange={event => setLink({ ...link, url: event.target.value })} placeholder="https://www.dropbox.com/…" spellCheck={false} autoFocus disabled={adding} /><button type="submit" disabled={adding || !link.url.trim()}>{adding ? 'Adding' : 'Add'}</button></div>
+        <div className="link-intake-row"><input value={link.title} onChange={event => setLink({ ...link, title: event.target.value })} placeholder="Title (optional)" aria-label="Title" disabled={adding} /><input value={link.from} onChange={event => setLink({ ...link, from: event.target.value })} placeholder="From (optional)" aria-label="From" disabled={adding} /></div>
+        <small>Dropbox, Drive or public links · 500 MB max</small>
+      </form>}</> : <div className="skill-locations">{[['Claude', '.claude/skills'], ['Codex', '.agents/skills'], ['Knowledge', 'knowledge'], ['Processes', 'processes']].map(([label, path]) => <button key={path} aria-pressed={pathKey(root) === pathKey(`${repo}/${path}`)} onClick={() => { setMode('all'); navigate(`${repo}/${path}`) }}>{label}</button>)}<p>Project skills · open a SKILL.md to read or edit.</p></div>}
       <form className="file-path" onSubmit={event => { event.preventDefault(); setMode('all'); navigate(typedPath) }}><button type="button" title="Parent folder" onClick={() => { setMode('all'); navigate(rootFolder?.parent || repo) }}><Icon name="up" size={15} /></button><input value={typedPath} onChange={event => setTypedPath(event.target.value)} spellCheck={false} aria-label="Folder path" /><button type="submit" title="Open folder"><Icon name="arrow" size={14} /></button></form>
       <div className="file-filter"><Icon name="search" size={14} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Filter file names…" aria-label="Filter file names in expanded folders" /></div>
       <div className={`file-list ${dropTarget === pathKey(destination) ? 'drop-area' : ''}`} role="tree" aria-label="Folder tree" onKeyDown={deleteKey} {...dropProps(destination)}>
-        <div role="none" className="file-entry has-reveal" {...dropProps(root)}><button role="treeitem" aria-level={1} aria-expanded="true" aria-selected={pathKey(selected) === pathKey(root)} className={`file-row file-root-row ${dropTarget === pathKey(root) ? 'drop-target' : ''}`} onClick={() => { setSelected(root); setDestination(root) }} {...dropProps(root)} title={root}><Icon name="arrow" size={11} style={{ transform: 'rotate(90deg)' }} /><Icon name="folder" size={15} /><span>{pathKey(root) === pathKey(repo) ? 'MR-MAK' : fileName(root)}</span></button><RevealFolder path={root} name={pathKey(root) === pathKey(repo) ? 'MR-MAK' : fileName(root)} /></div>
+        <div role="none" className="file-entry has-reveal" {...dropProps(root)}><button role="treeitem" aria-level={1} aria-expanded="true" aria-selected={pathKey(selected) === pathKey(root)} className={`file-row file-root-row ${dropTarget === pathKey(root) ? 'drop-target' : ''}`} onClick={() => { setSelected(root); setDestination(root) }} {...dropProps(root)} title={root}><Icon name="arrow" size={11} style={{ transform: 'rotate(90deg)' }} /><Icon name="folder" size={15} /><span>{fileName(root)}</span></button><RevealFolder path={root} name={fileName(root)} /></div>
         <FolderBranch key={`${root}:${mode}`} path={root} mode={mode} tree={tree} onLoad={loaded} />
       </div>
       <div className="file-transfer-status" aria-live="polite">{error && <p className="desk-error-inline">{error}</p>}{status && <p>{status}</p>}<small title={destination}>{copying ? 'Transferring files…' : 'Drag to move · Delete to Recycle Bin'}</small></div>

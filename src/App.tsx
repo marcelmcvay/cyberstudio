@@ -113,6 +113,16 @@ export default function App() {
     document.title = entity ? `CyberStudio — ${entity.title}` : 'CyberStudio — Workspace'
   }, [entity])
 
+  // A clicked card or crumb unmounts, which leaves the next Tab starting in the
+  // content. Restart keyboard order at the top bar so tabs come before content.
+  const shownId = useRef(route.id)
+  useEffect(() => {
+    if (shownId.current === route.id) return
+    shownId.current = route.id
+    const active = document.activeElement
+    if (!active || active === document.body) document.querySelector<HTMLElement>('.topbar')?.focus({ preventScroll: true })
+  }, [route.id])
+
   const goHome = useCallback(() => {
     history.pushState(null, '', window.location.pathname + window.location.search)
     setRoute({ id: null, step: -1 })
@@ -237,7 +247,10 @@ export default function App() {
         />
         <Readout />
 
-        <div className="content">
+        <div
+          className="content"
+          {...(entity && entity.steps.length > 0 && { id: 'step-panel', role: 'tabpanel', 'aria-labelledby': `step-tab-${stepIndex}` })}
+        >
           <ReportBoundary key={reportUrl || 'home'} onHome={goHome}>
           {entity && reportUrl && step?.viewer === 'compare3d' ? (
             <Suspense fallback={<div className="boot"><MakLogo size={56} animated={false} /></div>}><Compare3D

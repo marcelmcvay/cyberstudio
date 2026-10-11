@@ -25,7 +25,7 @@
   --text: #ece4d8;
   --text-bright: #fbf6ee;
   --text-dim: #b8a496;
-  --text-muted: #85766b;
+  --text-muted: #9a8a7e; /* >= 4.5:1 on every dark panel surface */
 
   /* ── Brand ── */
   --servo: #ff4636;

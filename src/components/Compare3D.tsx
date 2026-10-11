@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Compare3DManifest, Compare3DTest } from '../types'
 import { ModelViewer, type CameraState, type ShadingMode, type ViewerStats } from '../lib/three/viewer'
+import { ignoreViewerKey } from '../lib/viewerKeys'
 
 /**
  * Side-by-side 3D comparison card.
@@ -37,6 +38,7 @@ const TEXTURE_MODES: ModeDef[] = [
 const ALL_MODES = [...GEOMETRY_MODES, ...TEXTURE_MODES]
 
 const fmt = (n: number) => n.toLocaleString('en-US')
+const COUNT_NOTE = /\b(triangles?|tris|faces|polys?|polygons?)\b/i
 
 /** 8192 → "8K", 2048 → "2K", 1536 → "1536px". */
 function texLabel(px: number): string | null {
@@ -114,6 +116,10 @@ function Pane({
     viewerRef.current?.setMode(mode)
   }, [mode])
 
+  // A note part that restates the polycount ("1.88 M triangles") would sit beside
+  // the measured line in another unit. Once stats are in, only the measured count shows.
+  const note = stats && sublabel ? sublabel.split(' · ').filter(part => !COUNT_NOTE.test(part)).join(' · ') : sublabel
+
   return (
     <div className="c3d-pane">
       <div className="c3d-pane-head">
@@ -159,9 +165,9 @@ function Pane({
             {label}
           </span>
         )}
-        {sublabel && <span className="c3d-pane-sub">{sublabel}</span>}
+        {note && <span className="c3d-pane-sub">{note}</span>}
         {stats && (
-          <span className="c3d-pane-stats">
+          <span className="c3d-pane-stats" title={note !== sublabel ? `Manifest note: ${sublabel}` : undefined}>
             {fmt(stats.triangles)} tris · {fmt(stats.vertices)} verts · {stats.meshes}{' '}
             {stats.meshes === 1 ? 'mesh' : 'meshes'}
             {texLabel(stats.textureSize) ? ` · ${texLabel(stats.textureSize)}` : ' · untextured'}
@@ -266,11 +272,9 @@ export default function Compare3D({ manifestUrl, baseUrl }: { manifestUrl: strin
   const testCount = manifest?.tests.length ?? 0
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
-      const t = ev.target as HTMLElement | null
-      // SELECT is in here because the dropdown handles arrows natively; without
+      // SELECT is skipped because the dropdown handles arrows natively; without
       // this the test would advance twice on one keypress.
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable))
-        return
+      if (ignoreViewerKey(ev)) return
       const n = Number(ev.key)
       if (n >= 1 && n <= ALL_MODES.length) {
         setMode(ALL_MODES[n - 1].id)
@@ -365,6 +369,7 @@ export default function Compare3D({ manifestUrl, baseUrl }: { manifestUrl: strin
             <button
               key={m.id}
               className={`c3d-mode${mode === m.id ? ' active' : ''}`}
+              aria-pressed={mode === m.id}
               onClick={() => setMode(m.id)}
               title={`${m.hint}  ·  ${i + 1}`}
             >
@@ -376,6 +381,7 @@ export default function Compare3D({ manifestUrl, baseUrl }: { manifestUrl: strin
         <div className="c3d-tools">
           <button
             className={`c3d-toggle${sync ? ' on' : ''}`}
+            aria-pressed={sync}
             onClick={() => setSync(v => !v)}
             title="Lock both cameras together (S)"
           >
@@ -383,6 +389,7 @@ export default function Compare3D({ manifestUrl, baseUrl }: { manifestUrl: strin
           </button>
           <button
             className={`c3d-toggle${spin ? ' on' : ''}`}
+            aria-pressed={spin}
             onClick={() => setSpin(v => !v)}
             title="Auto-rotate both models (Space)"
           >
@@ -394,6 +401,7 @@ export default function Compare3D({ manifestUrl, baseUrl }: { manifestUrl: strin
           {test?.input && (
             <button
               className={`c3d-toggle${showInput ? ' on' : ''}`}
+              aria-pressed={showInput}
               onClick={() => setShowInput(v => !v)}
               title="Show the reference image this test was generated from (I)"
             >

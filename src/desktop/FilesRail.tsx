@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DragEvent, KeyboardEvent } from 'react'
-import { addLink, api, desktopState, reportError, setPreview, uploadFile, useDesktop, windowAction } from './client'
+import { addLink, api, desktopState, fileManager, isMac, reportError, setPreview, trashName, uploadFile, useDesktop, windowAction } from './client'
 import type { FileEntry, Folder, Preview } from './types'
 import { Icon } from './Icons'
 import MarkdownDocument from '../components/MarkdownDocument'
@@ -11,13 +11,24 @@ import { ZoomImage } from '../components/ImagePreview'
 import ReportFrame from '../components/ReportFrame'
 
 export function FilePreview({ file }: { file: Preview }) {
-  return <div className="file-preview"><header><span><Icon name="files" size={16} /><strong title={file.name}>{file.name}</strong><small>{Math.max(1, Math.round(file.size / 1024)).toLocaleString()} KB</small></span><div><button className="desk-icon" onClick={() => api('/reveal', { path: file.path }).catch(reportError)} title="Show in Explorer"><Icon name="external" size={17} /></button><button className="desk-icon" onClick={() => setPreview(null)} title="Back to Workspace" aria-label="Close file preview"><Icon name="close" size={18} /></button></div></header><div className={`file-preview-body ${file.kind}`}>
+  // Escape goes back to the Workspace, except while typing or when a lightbox owns it.
+  useEffect(() => {
+    const close = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog[open]')) return
+      const target = event.target as HTMLElement | null
+      if (target && (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.isContentEditable)) return
+      event.preventDefault(); setPreview(null)
+    }
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [])
+  return <div className="file-preview"><header><span><Icon name="files" size={16} /><strong title={file.name}>{file.name}</strong><small>{Math.max(1, Math.round(file.size / 1024)).toLocaleString()} KB</small></span><div><button className="desk-icon" onClick={() => api('/reveal', { path: file.path }).catch(reportError)} title={`Show in ${fileManager}`}><Icon name="external" size={17} /></button><button className="desk-icon" onClick={() => setPreview(null)} title="Back to Workspace" aria-label="Close file preview"><Icon name="close" size={18} /></button></div></header><div className={`file-preview-body ${file.kind}`}>
     {file.kind === 'text' && (/\.md$/i.test(file.name) ? <MarkdownDocument key={`${file.path}:${file.revision}`} file={file} /> : <pre>{file.text}</pre>)}
     {file.kind === 'document' && file.url && <ReportFrame url={file.url} title={file.name} sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads" />}
     {file.kind === 'image' && <ZoomImage src={file.url} alt={file.name} />}
     {file.kind === 'video' && <video src={file.url} controls />}
     {file.kind === 'audio' && <audio src={file.url} controls />}
-    {file.kind === 'unsupported' && <div className="file-unsupported"><Icon name="files" size={38} /><h2>{file.name}</h2><p>{file.reason}</p><button className="desk-secondary" onClick={() => api('/reveal', { path: file.path }).catch(reportError)}>Show in Explorer</button></div>}
+    {file.kind === 'unsupported' && <div className="file-unsupported"><Icon name="files" size={38} /><h2>{file.name}</h2><p>{file.reason}</p><button className="desk-secondary" onClick={() => api('/reveal', { path: file.path }).catch(reportError)}>Show in {fileManager}</button></div>}
   </div></div>
 }
 
@@ -25,7 +36,7 @@ const pathKey = (path: string) => path.replace(/\\/g, '/').replace(/\/$/, '').to
 const fileName = (path: string) => path.replace(/[\\/]$/, '').split(/[\\/]/).pop() || path
 const message = (error: unknown) => error instanceof Error ? error.message : String(error)
 function RevealFolder({ path, name }: { path: string; name: string }) {
-  return <button className="file-reveal" title={`Open ${name} in Explorer`} aria-label={`Open ${name} in Explorer`} onClick={event => { event.stopPropagation(); api('/reveal', { path }).catch(reportError) }}><Icon name="external" size={14} /></button>
+  return <button className="file-reveal" title={`Open ${name} in ${fileManager}`} aria-label={`Open ${name} in ${fileManager}`} onClick={event => { event.stopPropagation(); api('/reveal', { path }).catch(reportError) }}><Icon name="external" size={14} /></button>
 }
 type TreeControls = {
   expanded: Set<string>; selected: string; dropTarget: string; query: string; revision: number
@@ -54,7 +65,7 @@ function FolderBranch({ path, mode = 'all', depth = 1, ancestors = [], tree, onL
   if (error) return <p className="file-tree-note desk-error-inline">{error}</p>
   if (!folder) return <p className="file-tree-note">Loading folder…</p>
   if (ancestors.includes(pathKey(folder.path))) return <p className="file-tree-note">Linked folder already shown above.</p>
-  if (depth > 20) return <button className="file-tree-note" onClick={() => api('/reveal', { path }).catch(reportError)}>Open this deep folder in Explorer</button>
+  if (depth > 20) return <button className="file-tree-note" onClick={() => api('/reveal', { path }).catch(reportError)}>Open this deep folder in {fileManager}</button>
   const entries = folder.entries.filter(entry => entry.directory || entry.name.toLowerCase().includes(tree.query.toLowerCase()))
   return <div role="group" {...tree.dropProps(folder.path)}>{entries.map(entry => {
     const expanded = tree.expanded.has(pathKey(entry.path))
@@ -75,7 +86,7 @@ function FolderBranch({ path, mode = 'all', depth = 1, ancestors = [], tree, onL
       {entry.directory && expanded && <FolderBranch path={entry.path} depth={depth + 1} ancestors={[...ancestors, pathKey(folder.path)]} tree={tree} />}
     </div>
   })}{!entries.length && <p className="file-tree-note" style={{ paddingLeft: 22 + depth * 14 }}>{tree.query ? 'No matching files.' : 'Empty folder · drop files here'}</p>}
-    {folder.truncated && <p className="file-tree-note">First 1,500 entries shown. Open Explorer for the complete folder.</p>}
+    {folder.truncated && <p className="file-tree-note">First 1,500 entries shown. Open {fileManager} for the complete folder.</p>}
   </div>
 }
 
@@ -119,6 +130,7 @@ export default function FilesRail() {
   const [linkOpen, setLinkOpen] = useState(false)
   const [link, setLink] = useState({ url: '', title: '', from: '' })
   const [adding, setAdding] = useState(false)
+  const [linkNote, setLinkNote] = useState<{ error: boolean; text: string } | null>(null)
   const copyLock = useRef(false)
   const internalDrag = useRef<{ path: string; directory: boolean; handled: boolean } | null>(null)
   const recycleLock = useRef(false)
@@ -148,7 +160,7 @@ export default function FilesRail() {
       const result = (event as CustomEvent<{ path: string; recycled: boolean; error?: string }>).detail
       recycleLock.current = false
       if (result.error) { setError(result.error); setStatus(''); return }
-      setStatus(`${fileName(result.path)} moved to Recycle Bin.`)
+      setStatus(`${fileName(result.path)} moved to the ${trashName}.`)
       const preview = desktopState().preview
       if (preview && (pathKey(preview.path) === pathKey(result.path) || pathKey(preview.path).startsWith(pathKey(result.path) + '/'))) setPreview(null)
       const parent = result.path.replace(/[\\/][^\\/]+$/, '')
@@ -195,7 +207,7 @@ export default function FilesRail() {
     const gesture = internalDrag.current
     if (gesture) {
       gesture.handled = true
-      if (gesture.directory) { setStatus(''); setError('Drop folders into Chats to insert their paths. Use Explorer to move folders.'); return }
+      if (gesture.directory) { setStatus(''); setError(`Drop folders into Chats to insert their paths. Use ${fileManager} to move folders.`); return }
       if (copyLock.current) return
       copyLock.current = true; setCopying(true); setError('')
       try {
@@ -206,20 +218,20 @@ export default function FilesRail() {
       finally { copyLock.current = false; setCopying(false); refresh() }
       return
     }
-    if (Array.from(event.dataTransfer.items).some(item => item.webkitGetAsEntry?.()?.isDirectory)) { setError('Drop individual files into a folder. Folder transfers are available in Explorer.'); return }
+    if (Array.from(event.dataTransfer.items).some(item => item.webkitGetAsEntry?.()?.isDirectory)) { setError(`Drop individual files into a folder. Folder transfers are available in ${fileManager}.`); return }
     await copy(Array.from(event.dataTransfer.files), folder)
   }, [copy, refresh])
   const inbox = `${repo}/inbox`
   const openInbox = (select = inbox) => { setMode('main'); navigate(repo); setExpanded(current => new Set([...current, pathKey(inbox)])); setSelected(select); setDestination(inbox) }
   const submitLink = async () => {
     if (adding || !link.url.trim()) return
-    setAdding(true); setError(''); setStatus('Downloading link into the inbox…')
+    setAdding(true); setLinkNote({ error: false, text: 'Downloading link into the inbox…' })
     try {
       const result = await addLink({ url: link.url.trim(), title: link.title.trim() || undefined, from: link.from.trim() || undefined })
-      setStatus(`Added ${result.relative} · ${result.asset.kind} · ${result.asset.files.length} ${result.asset.files.length === 1 ? 'file' : 'files'}.`)
+      setLinkNote({ error: false, text: `Added ${result.relative} · ${result.asset.kind} · ${result.asset.files.length} ${result.asset.files.length === 1 ? 'file' : 'files'}.` })
       setLink(current => ({ url: '', title: '', from: current.from }))
       openInbox(result.path); refresh()
-    } catch (error) { setError(message(error)); setStatus('') }
+    } catch (error) { setLinkNote({ error: true, text: message(error) }) }
     finally { setAdding(false) }
   }
   const deleteKey = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -227,7 +239,7 @@ export default function FilesRail() {
     event.preventDefault(); event.stopPropagation()
     const path = (event.target as HTMLElement).closest('[role="treeitem"]')?.getAttribute('data-path')
     if (event.repeat || !path || recycleLock.current || copyLock.current) return
-    recycleLock.current = true; setError(''); setStatus(`Moving ${fileName(path)} to Recycle Bin…`)
+    recycleLock.current = true; setError(''); setStatus(`Moving ${fileName(path)} to the ${trashName}…`)
     api('/files/recycle', { path }).catch(error => { recycleLock.current = false; setError(message(error)); setStatus('') })
   }
   const dropProps = (folder: string) => ({
@@ -270,6 +282,7 @@ export default function FilesRail() {
         <div className="link-intake-row"><input id="link-intake-url" value={link.url} onChange={event => setLink({ ...link, url: event.target.value })} placeholder="https://www.dropbox.com/…" spellCheck={false} autoFocus disabled={adding} /><button type="submit" disabled={adding || !link.url.trim()}>{adding ? 'Adding' : 'Add'}</button></div>
         <div className="link-intake-row"><input value={link.title} onChange={event => setLink({ ...link, title: event.target.value })} placeholder="Title (optional)" aria-label="Title" disabled={adding} /><input value={link.from} onChange={event => setLink({ ...link, from: event.target.value })} placeholder="From (optional)" aria-label="From" disabled={adding} /></div>
         <small>Dropbox, Drive or public links · 500 MB max</small>
+        <div className="link-intake-status" aria-live="polite">{linkNote && <p className={linkNote.error ? 'desk-error-inline' : undefined}>{linkNote.text}</p>}</div>
       </form>}</> : <div className="skill-locations">{[['Claude', '.claude/skills'], ['Codex', '.agents/skills'], ['Knowledge', 'knowledge'], ['Processes', 'processes']].map(([label, path]) => <button key={path} aria-pressed={pathKey(root) === pathKey(`${repo}/${path}`)} onClick={() => { setMode('all'); navigate(`${repo}/${path}`) }}>{label}</button>)}<p>Project skills · open a SKILL.md to read or edit.</p></div>}
       <form className="file-path" onSubmit={event => { event.preventDefault(); setMode('all'); navigate(typedPath) }}><button type="button" title="Parent folder" onClick={() => { setMode('all'); navigate(rootFolder?.parent || repo) }}><Icon name="up" size={15} /></button><input value={typedPath} onChange={event => setTypedPath(event.target.value)} spellCheck={false} aria-label="Folder path" /><button type="submit" title="Open folder"><Icon name="arrow" size={14} /></button></form>
       <div className="file-filter"><Icon name="search" size={14} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Filter file names…" aria-label="Filter file names in expanded folders" /></div>
@@ -277,7 +290,7 @@ export default function FilesRail() {
         <div role="none" className="file-entry has-reveal" {...dropProps(root)}><button role="treeitem" aria-level={1} aria-expanded="true" aria-selected={pathKey(selected) === pathKey(root)} className={`file-row file-root-row ${dropTarget === pathKey(root) ? 'drop-target' : ''}`} onClick={() => { setSelected(root); setDestination(root) }} {...dropProps(root)} title={root}><Icon name="arrow" size={11} style={{ transform: 'rotate(90deg)' }} /><Icon name="folder" size={15} /><span>{fileName(root)}</span></button><RevealFolder path={root} name={fileName(root)} /></div>
         <FolderBranch key={`${root}:${mode}`} path={root} mode={mode} tree={tree} onLoad={loaded} />
       </div>
-      <div className="file-transfer-status" aria-live="polite">{error && <p className="desk-error-inline">{error}</p>}{status && <p>{status}</p>}<small title={destination}>{copying ? 'Transferring files…' : 'Drag to move · Delete to Recycle Bin'}</small></div>
+      <div className="file-transfer-status" aria-live="polite">{error && <p className="desk-error-inline">{error}</p>}{status && <p>{status}</p>}<small title={destination}>{copying ? 'Transferring files…' : `Drag to move · ${isMac ? 'Fn+Delete' : 'Delete'} to ${trashName}`}</small></div>
       <footer><button onClick={() => navigate(repo)}>Project root</button></footer>
     </div>}
     <div className="files-rail">{(['files', 'properties', 'skills', 'mcp', 'settings'] as const).map(name => <button key={name} className={`rail-tool ${open && panel === name ? 'active' : ''}`} onClick={() => showPanel(name)} title={name === 'mcp' ? 'MCP' : name[0].toUpperCase() + name.slice(1)} aria-label={`Toggle ${name}`} aria-pressed={open && panel === name}><Icon name={name === 'files' ? 'folder' : name} size={18} /><span>{name === 'mcp' ? 'MCP' : name}</span></button>)}<button className="rail-tool" title="Workspace help" aria-label="Open Workspace help" onClick={() => api<Preview>('/preview?path=workspace%2F_shared%2Fhelp.md').then(setPreview).catch(reportError)}><Icon name="help" size={18} /><span>Help</span></button><div className="rail-spacer" /><button className="desk-icon" title="Show Chats" onClick={() => windowAction('chats')}><Icon name="chats" size={18} /></button></div>

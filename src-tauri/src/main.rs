@@ -159,6 +159,15 @@ fn make_windows(app: &tauri::AppHandle, workspace: &str, chats: &str) -> Result<
         .title(format!("{} — Chats", app.config().product_name.as_deref().unwrap_or("CyberStudio"))).inner_size(chat_width, (height - 6.0).max(450.0))
         .position(x + 2.0, y + 2.0).min_inner_size(330.0, 420.0)
         .theme(Some(tauri::Theme::Dark)).background_color(tauri::webview::Color(12, 13, 16, 255)).build()?;
+    // WKWebView follows the macOS Keyboard navigation setting, off by default, so
+    // plain Tab skips buttons and links. Let Tab reach every control in both windows.
+    #[cfg(target_os = "macos")]
+    for window in [&workspace_window, &chats_window] {
+        window.with_webview(|webview| unsafe {
+            let view: &objc2_web_kit::WKWebView = &*webview.inner().cast();
+            view.configuration().preferences().setTabFocusesLinks(true);
+        })?;
+    }
     // Native drops expose every original file/folder path. Keep Workspace's
     // browser drop handler for imports, and use this only in the Chats window.
     let drop_window = chats_window.clone();

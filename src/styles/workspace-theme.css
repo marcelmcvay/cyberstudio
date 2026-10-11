@@ -17,7 +17,7 @@ html[data-workspace-theme=light]{
   color-scheme:light;background:#fff;
   --bg:#f4f0ea;--bg-deep:#ebe5dc;--surface-1:#fbf8f3;--surface-2:#efe9e1;--surface-3:#e6dfd5;
   --surface-solid:#fbf8f3;--sidebar-glass:#f8f4ee;--topbar-glass:#f8f4eef2;
-  --text:#2a231e;--text-bright:#15110e;--text-dim:#5e5249;--text-muted:#776a60;
+  --text:#2a231e;--text-bright:#15110e;--text-dim:#5e5249;--text-muted:#6b5e55;
   --servo:#b8321f;--servo-bright:#952514;--chrome:#5b666c;--nutrient:#8a6418;--oxblood:#a3283f;--flesh:#6e5c50;--pink:#b8321f;--pink-bright:#952514;--purple:#5b666c;--green:#216c45;--amber:#8a6418;--blue:#245c9e;--red:#a3283f;
   --pink-dim:#b8321f0f;--purple-dim:#5b666c12;--green-dim:#216c4512;--amber-dim:#80541b12;--red-dim:#b1364312;
   --hairline:#3a2c2217;--hairline-strong:#3a2c2230;
@@ -92,6 +92,10 @@ html[data-workspace-theme=light] :is(.mcp-problem,.desk-error-inline){color:var(
 html[data-workspace-theme=light] .desk-icon{color:var(--text-dim)!important}
 html[data-workspace-theme=light] .desk-icon:hover{color:var(--pink)!important;background:var(--pink-dim)}
 html[data-workspace-theme=light] .desktop-root input{border-color:var(--hairline-strong)}
+html[data-workspace-theme=light] .link-intake{background:var(--surface-2);border-color:var(--hairline-strong)}
+html[data-workspace-theme=light] .link-intake input{background:#fff;border-color:var(--hairline-strong)}
+html[data-workspace-theme=light] :is(.link-intake small,.file-transfer-status small,.files-panel footer button){color:var(--text-muted)}
+html[data-workspace-theme=light] .s3d-readout{background:#fbf8f3eb;border-color:var(--hairline-strong)}
 
 html[data-workspace-theme=light] .voice-panel{background:#fff;border-color:var(--hairline-strong);box-shadow:var(--shadow-2);color:var(--text)}
 html[data-workspace-theme=light] :is(.voice-panel h2,.voice-welcome p,.caption,.activity-item strong){color:var(--text)}
@@ -99,5 +103,6 @@ html[data-workspace-theme=light] :is(.voice-welcome>span,.caption.user,.caption>
 html[data-workspace-theme=light] :is(.voice-settings select,.voice-compose button){background:#f5f6f9;color:var(--pink);border-color:var(--hairline-strong)}
 html[data-workspace-theme=light] :is(.voice-panel header,.voice-settings,.voice-compose,.voice-tabs,.mak-exchange,.activity-item){border-color:var(--hairline)}
 html[data-workspace-theme=light] .voice-tabs>button.selected{color:var(--pink);border-color:var(--pink)}
+html[data-workspace-theme=light] .voice-nose>span{color:var(--pink)}
 html[data-workspace-theme=light] .voice-caption-toggle{color:var(--pink)!important;background:#fff;border-color:var(--hairline-strong)}
 html[data-workspace-theme=light] .desktop-error{background:#fff1f2;color:#66574d;border-color:#bfb3ab}

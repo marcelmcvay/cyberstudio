@@ -2,7 +2,7 @@ import { open, realpath, stat, lstat, unlink, link, copyFile } from 'node:fs/pro
 import { constants } from 'node:fs';
 import path from 'node:path';
 import { within } from './util.mjs';
-import { invalidFilename, samePath } from './platform.mjs';
+import { invalidFilename, isMacOS, isWindows, samePath } from './platform.mjs';
 
 export const MAX_FILE_BYTES = 1024 * 1024 * 1024;
 const invalid = message => Object.assign(new Error(message), { status: 400 });
@@ -75,7 +75,7 @@ export async function moveFile(value, folder) {
   const target = path.join(destination, path.basename(source));
   if (samePath(source, target)) return { path: source, moved: false };
   const before = await lstat(source);
-  if (!before.isFile() || before.isSymbolicLink()) throw invalid('Move individual files here. Use Explorer for folder or link moves.');
+  if (!before.isFile() || before.isSymbolicLink()) throw invalid(`Move individual files here. Use ${isWindows ? 'Explorer' : isMacOS ? 'Finder' : 'the file manager'} for folder or link moves.`);
   try {
     // A same-volume hard link is an exclusive, constant-time move reservation.
     // Neither this path nor the cross-volume fallback can overwrite another file.

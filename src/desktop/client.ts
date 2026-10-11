@@ -5,6 +5,11 @@ const params = new URLSearchParams(window.location.search)
 export const isDesktop = params.get('desktop') === '1'
 export const surface = params.get('surface') === 'chats' ? 'chats' : 'workspace'
 export const clientId = crypto.randomUUID()
+// Visible platform vocabulary: Finder and Trash on macOS, Explorer and Recycle Bin on Windows.
+export const isMac = /Mac/i.test(navigator.platform || navigator.userAgent)
+const isWindows = /Win/i.test(navigator.platform || navigator.userAgent)
+export const fileManager = isMac ? 'Finder' : isWindows ? 'Explorer' : 'the file manager'
+export const trashName = isMac ? 'Trash' : isWindows ? 'Recycle Bin' : 'Trash'
 let token = params.get('token') || sessionStorage.getItem('mrmak.token') || ''
 if (isDesktop && token) {
   sessionStorage.setItem('mrmak.token', token)

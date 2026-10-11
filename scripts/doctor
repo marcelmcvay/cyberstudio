@@ -196,6 +196,15 @@ async function main() {
   } catch (e) {
     report('yellow', 'spend MTD', `ledger unreadable: ${e.message}`);
   }
+  try {
+    const { sidecarHealth } = await import('./sidecar.mjs');
+    const h = sidecarHealth(projectRoot());
+    if (!h.folders) report('green', 'asset sidecars', 'no asset folders yet');
+    else if (h.failing || h.missing) report('yellow', 'asset sidecars', `${h.sidecars} of ${h.folders} folders, ${h.failing} failing schema. Run: node scripts/sidecar.mjs scan, then check`);
+    else report('green', 'asset sidecars', `${h.sidecars} valid (schemas/asset-v1.json)`);
+  } catch (e) {
+    report('yellow', 'asset sidecars', `check failed: ${e.message}`);
+  }
 
   // --- Engines (ROG)
   heading('Engines (ROG)');

@@ -2,6 +2,13 @@
 
 Newest first. Date, decision, who decided, why.
 
+## 2026-10-11
+
+- **No `cyberstudio-3d` branch.** Marcel. The brief never defined it, and the kit is 3D-first today, so 3D tooling stays on `main`. Revisit a profile split when the FUI profile arrives.
+- **Asset sidecars follow `schemas/asset-v1.json`.** Producer. One `asset.json` per asset folder. Tools own files, jobs, cost and mesh stats; people own title, status, tags and review notes. The ledger stays the source of truth for money; `ledger_ids` rolls part generations into their asset.
+- **The three M1 meshes are picked after the sidecars and properties panel land.** Marcel.
+- **Claude on Strix chats and Blender on the Strix ship before the rest of M1.** Marcel. Pulled forward from M3: Tailscale + SSH, `scripts/strix`, `blender-strix` MCP over an SSH tunnel, verified from a different network.
+
 ## 2026-10-09
 
 - **Images made for 3D come as multiple angles: front, left, back and right, then `tripo_h3_1_multiview_to_3d`.** Marcel. One view leaves Tripo to invent the back. Tripo's slot order is front, left, back, right, and its left is the object's own left: the side on your right as you face the front. Verified 2026-10-09: the reverse order duplicated the mill's pendant and conveyor on both sides. Applies to objects; a flat material source (floor) stays a single image.

@@ -3,8 +3,8 @@
 #   scripts/studio            -> CYBERSTUDIO_PROJECT_ROOT from the kit's .env (else the kit)
 #   scripts/studio <folder>   -> that folder
 #   scripts/studio --kit      -> the kit itself (sample cards)
-# Project folders need workspace/workspace.json. They borrow the kit's skills
-# and processes through local links, which this script creates if missing.
+# Project folders need workspace/workspace.json. They borrow the kit's skills,
+# agents and processes through local links, which this script creates if missing.
 set -euo pipefail
 KIT="$(cd "$(dirname "$0")/.." && pwd)"
 BIN="$KIT/src-tauri/target/debug/CyberStudio"
@@ -20,7 +20,7 @@ PROJECT="$(cd "$PROJECT" && pwd)"
 
 if [ "$PROJECT" != "$KIT" ]; then
   mkdir -p "$PROJECT/.claude" "$PROJECT/.agents"
-  for link in .claude/skills .agents/skills processes; do
+  for link in .claude/skills .claude/agents .agents/skills processes; do
     [ -e "$PROJECT/$link" ] || ln -s "$KIT/$link" "$PROJECT/$link"
   done
 fi

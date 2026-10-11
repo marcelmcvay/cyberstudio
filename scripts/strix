@@ -58,8 +58,14 @@ EOF
     # Forward Mac :9877 to the Strix Blender MCP add-on (127.0.0.1:9876 there).
     # Idempotent: reuses a live tunnel. `.mcp.json` "blender-strix" calls this.
     port="${1:-9877}"
-    if nc -z 127.0.0.1 "$port" 2>/dev/null; then echo "tunnel up on :$port"; exit 0; fi
-    ssh -f -N -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -L "$port:127.0.0.1:9876" "$HOST"
+    fwd="-L $port:127.0.0.1:9876"
+    # A tunnel left over from another network can still hold the local port.
+    # Reuse it only if the Strix answers right now; otherwise replace it.
+    if pgrep -f -- "$fwd" >/dev/null; then
+      if "${SSH[@]}" exit 2>/dev/null; then echo "tunnel up on :$port"; exit 0; fi
+      pkill -f -- "$fwd"; sleep 1
+    fi
+    ssh -f -N -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=2 $fwd "$HOST"
     echo "tunnel up on :$port -> $HOST:9876"
     ;;
   pull)

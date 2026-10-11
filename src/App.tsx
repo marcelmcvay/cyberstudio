@@ -13,6 +13,7 @@ import ReportBoundary from './components/ReportBoundary'
 import { contentUrl, isDesktop } from './desktop/client'
 
 const Compare3D = lazy(() => import('./components/Compare3D'))
+const Scene3D = lazy(() => import('./components/Scene3D'))
 const ReportViewer = lazy(() => import('./components/ReportViewer'))
 
 // Freshly-touched work always burns at the top: sort by `updated` (falls back
@@ -230,9 +231,9 @@ export default function App() {
           stepIndex={stepIndex}
           onStep={selectStep}
           onHome={goHome}
-          // A compare3d step's "report" is a JSON manifest — opening it raw in a
+          // A 3D step's "report" is a JSON manifest — opening it raw in a
           // tab helps nobody, so the external link is hidden for those.
-          reportUrl={step?.viewer === 'compare3d' ? null : reportUrl}
+          reportUrl={step?.viewer ? null : reportUrl}
         />
         <Readout />
 
@@ -244,6 +245,8 @@ export default function App() {
               manifestUrl={reportUrl}
               baseUrl={reportUrl.slice(0, reportUrl.lastIndexOf('/'))}
             /></Suspense>
+          ) : entity && reportUrl && step?.viewer === 'scene3d' ? (
+            <Suspense fallback={<div className="boot"><MakLogo size={56} animated={false} /></div>}><Scene3D key={reportUrl} manifestUrl={reportUrl} /></Suspense>
           ) : entity && reportUrl ? (
             <Suspense fallback={<div className="boot"><MakLogo size={56} animated={false} /></div>}><ReportViewer key={reportUrl} url={reportUrl} title={step?.name ?? entity.title} relativePath={`workspace/${entity.folder}/${step?.path}`} /></Suspense>
           ) : (

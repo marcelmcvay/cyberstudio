@@ -132,6 +132,44 @@ export interface CameraState {
   target: [number, number, number]
 }
 
+/** Where one model sits in a shared scene, in meters. Used by `addPlaced`. */
+export interface Placement {
+  position?: [number, number, number]
+  /** Yaw in degrees, applied before the box is measured. */
+  rotationY?: number
+  /**
+   * Which face of the model's box lands on `position.y`. `bottom` (default)
+   * stands a machine on the floor whatever its exported origin; `top` sinks a
+   * slab so its walking surface is y = 0; `none` trusts the file's origin.
+   */
+  snap?: 'bottom' | 'top' | 'none'
+  /** Centre the box footprint on `position.x/z` (default) or trust the origin. */
+  center?: boolean
+}
+
+/** What one placed model cost to bring in. Real measurements, not sidecar values. */
+export interface PlacedStats extends ViewerStats {
+  /** Fetch plus parse, wall clock in this browser. */
+  loadMs: number
+  /** Bytes transferred, from the loader's progress events. 0 when unknown. */
+  bytes: number
+  /** Box size after yaw, in meters: [width x, depth z, height y]. */
+  size: [number, number, number]
+  /**
+   * How far the file's origin sat from its box bottom centre (top centre for
+   * `snap: 'top'`), in meters ([x, y, z]). Zero once a mesh is cleaned to
+   * origin-at-floor-centre.
+   */
+  pivotOffset: [number, number, number]
+}
+
+interface ViewerOptions {
+  /** Farthest orbit distance. A 20 m floor needs more room than a 2-unit model. */
+  maxDistance?: number
+  /** Camera far plane. */
+  far?: number
+}
+
 /** Single shared Draco decoder — same reasoning as the arena: two panes decode
  *  at once, and per-instance decoders churn workers and can split versions. */
 const DRACO_PATH = 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/'
@@ -141,9 +179,18 @@ function draco(): DRACOLoader {
     sharedDraco = new DRACOLoader()
     sharedDraco.setDecoderPath(DRACO_PATH)
     sharedDraco.setWorkerLimit(2)
-    sharedDraco.preload()
+    // No preload: the decoder is fetched only when a Draco file arrives. A
+    // preload fires on every viewer and the app CSP refuses the remote
+    // decoder, which logged errors even for files that never use Draco.
   }
   return sharedDraco
+}
+
+function makeLoader(): GLTFLoader {
+  const loader = new GLTFLoader()
+  loader.setDRACOLoader(draco())
+  loader.setMeshoptDecoder(MeshoptDecoder)
+  return loader
 }
 
 const CLAY = 0xc2c2c6
@@ -180,8 +227,18 @@ export class ModelViewer {
   private autoRotate = true
   private homeDist = 4
   private mode: ShadingMode = 'solid'
+  private keyLights: THREE.DirectionalLight[] = []
+  private shadowsOn = false
+  private flight: {
+    from: CameraState
+    to: CameraState
+    fov0: number
+    fov1: number
+    t0: number
+    ms: number
+  } | null = null
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, options: ViewerOptions = {}) {
     this.container = container
 
     this.renderer = new THREE.WebGLRenderer({
@@ -196,14 +253,14 @@ export class ModelViewer {
     this.renderer.toneMappingExposure = 1.05
     container.appendChild(this.renderer.domElement)
 
-    this.camera = new THREE.PerspectiveCamera(45, 1, 0.01, 200)
+    this.camera = new THREE.PerspectiveCamera(45, 1, 0.01, options.far ?? 200)
     this.camera.position.set(0, 0.4, 4)
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.enableDamping = true
     this.controls.dampingFactor = 0.08
     this.controls.minDistance = 0.4
-    this.controls.maxDistance = 40
+    this.controls.maxDistance = options.maxDistance ?? 40
     this.controls.autoRotateSpeed = 0.9
     this.controls.addEventListener('change', () => {
       if (this.applying || !this.onCameraChange) return
@@ -211,7 +268,10 @@ export class ModelViewer {
     })
     // Any manual grab kills auto-rotate — nothing worse on camera than the model
     // creeping while you are trying to hold an angle.
-    this.controls.addEventListener('start', () => this.setAutoRotate(false))
+    this.controls.addEventListener('start', () => {
+      this.flight = null
+      this.setAutoRotate(false)
+    })
 
     this.pmrem = new THREE.PMREMGenerator(this.renderer)
 
@@ -220,6 +280,7 @@ export class ModelViewer {
     const key = new THREE.DirectionalLight(0xffffff, 1.1)
     key.position.set(4, 7, 5)
     this.lightsClay.add(key)
+    this.lightsClay.add(key.target)
     const fill = new THREE.DirectionalLight(0xffffff, 0.35)
     fill.position.set(-5, 2, -4)
     this.lightsClay.add(fill)
@@ -228,6 +289,8 @@ export class ModelViewer {
     const pk = new THREE.DirectionalLight(0xffffff, 1.1)
     pk.position.set(6, 8, 5)
     this.lightsPbr.add(pk)
+    this.lightsPbr.add(pk.target)
+    this.keyLights = [key, pk]
     const pr = new THREE.DirectionalLight(0xffffff, 0.4)
     pr.position.set(-6, -3, -5)
     this.lightsPbr.add(pr)
@@ -246,11 +309,7 @@ export class ModelViewer {
    *  facing sideways and a comparison is worthless if the two face different
    *  ways; set per model in the manifest. */
   async load(url: string, rotationY = 0): Promise<void> {
-    const loader = new GLTFLoader()
-    loader.setDRACOLoader(draco())
-    loader.setMeshoptDecoder(MeshoptDecoder)
-
-    const gltf = await loader.loadAsync(url)
+    const gltf = await makeLoader().loadAsync(url)
     if (this.disposed) return
 
     this.clearModel()
@@ -279,6 +338,64 @@ export class ModelViewer {
 
     this.root.add(model)
 
+    this.onStats?.(this.collect(model))
+
+    this.frame()
+    this.setMode(this.mode)
+  }
+
+  /**
+   * Add a model to the scene at real scale, without clearing what is already
+   * there and without the 2-unit normalisation `load` applies. Positions are in
+   * meters, so several GLBs can be laid out on one floor. Resolves with the
+   * measured load time, triangle count and size.
+   */
+  async addPlaced(url: string, placement: Placement = {}): Promise<PlacedStats | null> {
+    let bytes = 0
+    const t0 = performance.now()
+    const gltf = await makeLoader().loadAsync(url, (e) => {
+      bytes = Math.max(bytes, e.total || e.loaded || 0)
+    })
+    const loadMs = performance.now() - t0
+    if (this.disposed) return null
+
+    const model = gltf.scene
+    if (placement.rotationY) model.rotation.y += (placement.rotationY * Math.PI) / 180
+    model.updateMatrixWorld(true)
+    const box = new THREE.Box3().setFromObject(model)
+    const size = box.getSize(new THREE.Vector3())
+    const centre = box.getCenter(new THREE.Vector3())
+    const snap = placement.snap ?? 'bottom'
+    const centred = placement.center ?? true
+    // Shift the model inside a holder so the holder's position is the
+    // placement, whatever the file's own origin is. That keeps a raw export
+    // and its cleaned replacement in the same spot on the floor.
+    model.position.set(
+      centred ? -centre.x : 0,
+      snap === 'bottom' ? -box.min.y : snap === 'top' ? -box.max.y : 0,
+      centred ? -centre.z : 0,
+    )
+    const holder = new THREE.Group()
+    holder.add(model)
+    holder.position.set(...(placement.position ?? [0, 0, 0]))
+    this.root.add(holder)
+
+    if (this.shadowsOn) this.applyShadowFlags(holder)
+    const stats = this.collect(model)
+    this.setMode(this.mode)
+
+    const r = (n: number) => Math.round(n * 1000) / 1000
+    return {
+      ...stats,
+      loadMs,
+      bytes,
+      size: [r(size.x), r(size.z), r(size.y)],
+      pivotOffset: [r(-centre.x), r(snap === 'top' ? -box.max.y : -box.min.y), r(-centre.z)],
+    }
+  }
+
+  /** Count what a loaded model carries and remember its authored materials. */
+  private collect(model: THREE.Object3D): ViewerStats {
     let vertices = 0
     let triangles = 0
     let meshes = 0
@@ -319,7 +436,7 @@ export class ModelViewer {
       }
     })
 
-    this.onStats?.({
+    return {
       vertices: Math.round(vertices),
       triangles: Math.round(triangles),
       meshes,
@@ -329,10 +446,41 @@ export class ModelViewer {
       hasRoughMap,
       hasMetalMap,
       textureSize,
-    })
+    }
 
-    this.frame()
-    this.setMode(this.mode)
+  }
+
+  /**
+   * Shadows from the key light, sized to `extent` meters around the
+   * origin. Off by default: the comparison panes float models in a void.
+   */
+  setShadows(on: boolean, extent = 12): void {
+    this.shadowsOn = on
+    this.renderer.shadowMap.enabled = on
+    this.renderer.shadowMap.type = THREE.PCFShadowMap
+    for (const light of this.keyLights) {
+      light.castShadow = on
+      light.position.normalize().multiplyScalar(extent * 2)
+      const cam = light.shadow.camera
+      cam.left = cam.bottom = -extent
+      cam.right = cam.top = extent
+      cam.near = 0.5
+      cam.far = extent * 5
+      cam.updateProjectionMatrix()
+      light.shadow.mapSize.set(2048, 2048)
+      light.shadow.bias = -0.0004
+      light.shadow.normalBias = 0.02
+    }
+    this.applyShadowFlags(this.root)
+  }
+
+  private applyShadowFlags(obj: THREE.Object3D): void {
+    obj.traverse((o) => {
+      const mesh = o as THREE.Mesh
+      if (!mesh.isMesh) return
+      mesh.castShadow = this.shadowsOn
+      mesh.receiveShadow = this.shadowsOn
+    })
   }
 
   // ── shading ──────────────────────────────────────────────────────────────
@@ -499,6 +647,30 @@ export class ModelViewer {
     this.applying = false
   }
 
+  /** Ease the camera to a preset; `ms` 0 jumps. Fov is optional. */
+  flyTo(s: CameraState, fov = this.camera.fov, ms = 900): void {
+    this.setAutoRotate(false)
+    if (ms <= 0) {
+      this.camera.fov = fov
+      this.camera.updateProjectionMatrix()
+      this.applyCamera(s)
+      return
+    }
+    this.flight = { from: this.cameraState(), to: s, fov0: this.camera.fov, fov1: fov, t0: performance.now(), ms }
+  }
+
+  private stepFlight(): void {
+    const f = this.flight
+    if (!f) return
+    const u = Math.min(1, (performance.now() - f.t0) / f.ms)
+    const k = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2
+    const mix = (a: number[], b: number[]) => a.map((v, i) => v + (b[i] - v) * k) as [number, number, number]
+    this.camera.fov = f.fov0 + (f.fov1 - f.fov0) * k
+    this.camera.updateProjectionMatrix()
+    this.applyCamera({ pos: mix(f.from.pos, f.to.pos), target: mix(f.from.target, f.to.target) })
+    if (u >= 1) this.flight = null
+  }
+
   setAutoRotate(on: boolean): void {
     this.autoRotate = on
     this.controls.autoRotate = on
@@ -568,6 +740,7 @@ export class ModelViewer {
   private tick = (): void => {
     if (this.disposed) return
     this.raf = requestAnimationFrame(this.tick)
+    this.stepFlight()
     this.controls.update()
     this.renderer.render(this.scene, this.camera)
   }

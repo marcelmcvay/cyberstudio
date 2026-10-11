@@ -1097,6 +1097,63 @@ html[data-workspace-theme=light] .content { background-image: none; }
 .c3d-boot-error strong { color: var(--red); }
 .c3d-boot-error code { font-family: var(--font-mono); font-size: 0.7rem; }
 
+/* ─── 3D scene step (Scene3D) ──────────────────────────────────────────────
+   One stage instead of panes; the comparison chrome is reused. The readout is
+   the evidence: measured per model in this browser, so it stays mono and
+   compact, tucked into the stage corner. */
+
+.s3d-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--text-bright);
+  white-space: nowrap;
+}
+.s3d-panes { grid-template-columns: 1fr; }
+
+.s3d-readout {
+  position: absolute;
+  /* Bottom right: the menu reopen button floats over the bottom-left corner. */
+  right: 12px;
+  bottom: 12px;
+  max-width: calc(100% - 24px);
+  overflow-x: auto;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: rgba(9, 7, 7, 0.78);
+  backdrop-filter: blur(6px);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+.s3d-readout table { border-collapse: collapse; }
+.s3d-readout th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.6rem;
+  padding: 0 14px 4px 0;
+}
+.s3d-readout td { padding: 1px 14px 1px 0; white-space: nowrap; }
+.s3d-readout tfoot td {
+  padding-top: 5px;
+  border-top: 1px solid var(--hairline);
+  color: var(--text);
+}
+.s3d-name { color: var(--text-bright); }
+.s3d-ok { color: var(--green); }
+.s3d-warn { color: var(--amber); }
+.s3d-err { color: var(--red); max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
+.s3d-dim { color: var(--text-muted); }
+
+@media (max-width: 720px) {
+  .s3d-readout { font-size: 0.6rem; }
+  .s3d-title { display: none; }
+}
+
 /* Quad share next to the poly counts. Green when the file declares
    FB_ngon_encoding, amber when it is read off index order without one. */
 .c3d-quads {

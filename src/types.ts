@@ -4,9 +4,10 @@ export interface WorkspaceStep {
   /**
    * Omitted = HTML in an iframe, formatted Markdown, or an image preview,
    * selected by file extension. `compare3d` = a Compare3DManifest JSON and
-   * the step renders the side-by-side 3D viewer instead.
+   * the step renders the side-by-side 3D viewer instead. `scene3d` = a
+   * Scene3DManifest JSON: several GLBs placed in one scene, in meters.
    */
-  viewer?: 'compare3d'
+  viewer?: 'compare3d' | 'scene3d'
 }
 
 export interface WorkspaceEntity {
@@ -98,4 +99,51 @@ export interface Compare3DTest {
 export interface Compare3DManifest {
   title?: string
   tests: Compare3DTest[]
+}
+
+/* ─── 3D scene steps ──────────────────────────────────────────────────────
+   One scene, several GLBs placed in meters. Paths are relative to the
+   manifest and may point outside the card (for example ../../assets/x/x.glb),
+   so the scene always shows the current canonical mesh. */
+
+export interface Scene3DModel {
+  /** Path to the .glb, relative to the manifest file. */
+  path: string
+  /** Readout name. Defaults to the file name. */
+  label?: string
+  /** Where the model's box bottom centre lands, in meters (x, y up, z). */
+  position?: [number, number, number]
+  /** Yaw in degrees. */
+  rotationY?: number
+  /**
+   * `bottom` (default) stands the model on y; `top` sinks a slab so its top
+   * face is y; `none` trusts the exported origin.
+   */
+  snap?: 'bottom' | 'top' | 'none'
+  /** Centre the footprint on x/z (default true). False trusts the origin. */
+  center?: boolean
+}
+
+export interface Scene3DCamera {
+  id: string
+  label: string
+  /** Camera position in meters. */
+  position: [number, number, number]
+  /** Orbit target in meters. */
+  target: [number, number, number]
+  /** Vertical field of view in degrees. Default 45. */
+  fov?: number
+}
+
+export interface Scene3DManifest {
+  title?: string
+  models: Scene3DModel[]
+  /** Presets, switchable with the number keys. The first is the opening view. */
+  cameras?: Scene3DCamera[]
+  /** Opening shading. Default `pbr`. */
+  defaultMode?: 'pbr' | 'solid' | 'wire'
+  /** Key-light shadows. Default true. */
+  shadows?: boolean
+  /** Triangle budget for the readout's total line. */
+  budget?: { triangles?: number }
 }

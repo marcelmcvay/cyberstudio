@@ -30,7 +30,12 @@ starter examples; ordinary work uses normal archiving behavior.
 
 Give each card a `hero`: its newest whole-object image, relative to the card's
 folder, as a small JPEG (about 720 px) rather than a full-size render. Mark 3D
-tabs with `"viewer": "compare3d"`. A project with many cards can add top-level
+tabs with `"viewer": "compare3d"` for side-by-side model comparison, or
+`"viewer": "scene3d"` for several GLBs placed in one scene: a JSON manifest with
+`models` (`path` relative to the manifest, `position` [x, y, z] in meters,
+`rotationY` in degrees, `snap` bottom/top/none) and `cameras` presets
+(`position`, `target`, optional `fov`). Point `path` at the canonical
+`assets/<id>/<id>.glb` so the scene follows cleanups. A project with many cards can add top-level
 `views`, such as `{"id": "models", "label": "3D", "viewer": "compare3d"}` or
 `{"id": "references", "label": "References", "steps": ["References"]}`. Each view
 becomes a menu tab that lists the cards with that tab, opens them on it, dims

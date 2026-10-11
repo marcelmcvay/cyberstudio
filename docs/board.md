@@ -23,13 +23,13 @@ Producer keeps this current. Status: `todo` · `doing` · `done` · `blocked (Ma
 
 | Item | Status | Notes |
 |---|---|---|
-| Agent team in `.claude/agents/` | todo | 7 roles from brief §5 |
+| Agent team in `.claude/agents/` | done | 6 subagents + Producer (main session); `docs/agents.md`; linked into projects by `scripts/studio` |
 | CyberStudio on macOS (Tauri, 2 h box) | done | Rust 1.99 (brew rustup). `npm run desktop:prepare` + `cargo build` in `src-tauri`; Claude Code chats work. Finder-launched `.app` may not find nvm `claude` (PATH) |
-| Re-skin, properties panel, GLB viewer, ledger widget, inbox/link intake | todo | |
-| Asset sidecar schema (extends `schema-v1.json`) | todo | |
-| `cyberstudio-3d` branch, `vec-factory` project | doing | VEC repo is now a CyberStudio Workspace (own `workspace.json`; kit skills and processes linked). Launch with `scripts/studio`. Branch not started |
+| Re-skin, properties panel, GLB viewer, ledger widget, inbox/link intake | doing | Done: Shell + Nutrient reskin, HUD, readout spend widget, Properties panel (status/notes via PATCH), inbox + link intake (`scripts/intake.mjs`, Add link in Files). GLB viewer: per-card compare3d exists; scene card pending |
+| Asset sidecar schema (extends `schema-v1.json`) | done | `schemas/asset-v1.json`, `scripts/sidecar.mjs` scan/check/ledger-orphans/map, `docs/sidecars.md`; VEC backfilled (6 assets) |
+| `cyberstudio-3d` branch, `vec-factory` project | done | Branch dropped (decision 2026-10-11). VEC repo is now a CyberStudio Workspace (own `workspace.json`; kit skills and processes linked). Launch with `scripts/studio`. Branch not started |
 | ~5 AD images, 3 Tripo meshes, three.js scene | todo | Meshes via Higgsfield-hosted Tripo H3.1 |
-| ROG Strix job host (pulled forward from M3) | doing | Tailscale (`strix`), OpenSSH key login, Git/LFS, Node, Claude Code, Blender 5.2.2 on the Strix; kit + VEC cloned. `scripts/strix` (status/sh/put/get/blender/pull). First GPU job: `scripts/blender/render-glb.py`, OptiX 5070 Ti, 17.8k tris 1600x900 128spp in ~4 s. Next: remote Blender MCP, Strix chats in CyberStudio, job queue |
+| ROG Strix job host (pulled forward from M3) | done | Tailscale (`strix`), OpenSSH key login, Git/LFS, Node, Claude Code, Blender 5.2.2 on the Strix; kit + VEC cloned. `scripts/strix` (status/sh/put/get/blender/pull). First GPU job: `scripts/blender/render-glb.py`, OptiX 5070 Ti, 17.8k tris 1600x900 128spp in ~4 s. Plus `blender-strix` MCP over SSH tunnel and Claude on Strix chats; verified cross-network. Job queue moves to M3 |
 
 ## M2: Discrete plant scene
 

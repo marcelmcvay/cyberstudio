@@ -1,6 +1,8 @@
 import type { WorkspaceEntity } from '../types'
 import { entityHash } from '../lib/route'
 import { contentUrl } from '../desktop/client'
+import './documents.css'
+import { reviewLabel, useReviewCount } from '../lib/reviewCounts'
 
 /**
  * The design-system card: glass surface over the aura, gradient edge
@@ -22,6 +24,7 @@ export default function MakCard({
   onOpen?: () => void
 }) {
   const steps = entity.steps.length
+  const inReview = useReviewCount(entity.id)
   return (
     <a
       href={entityHash(entity.id, step)}
@@ -38,7 +41,9 @@ export default function MakCard({
       <div className="card-top">
         <span className="chip">{entity.category || 'other'}</span>
         {entity.pinned && <span className="chip chip-pin">pinned</span>}
-        <span className={`status-dot ${entity.status}`} title={entity.status} />
+        {/* Every live card shares the active state, so only what needs the user is shown. */}
+        {inReview > 0 ? <span className="review-chip" title={`${reviewLabel(inReview)}. Open Properties to review.`}>{reviewLabel(inReview)}</span>
+          : entity.status !== 'active' && <span className={`status-dot ${entity.status}`} title={entity.status} />}
       </div>
 
       <div className="card-project-title">

@@ -41,9 +41,10 @@
 .prop-asset.open{--prop-bracket:var(--chrome);background-color:var(--surface-2)}
 .prop-asset.review{border-left:2px solid color-mix(in srgb,var(--nutrient) 60%,transparent)}
 .prop-asset.superseded{opacity:.72}
-.properties-panel .prop-asset-head{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;background:none;color:inherit;text-align:left;cursor:pointer}
-.properties-panel .prop-asset-head:focus-visible{outline:1px solid var(--nutrient);outline-offset:-2px}
-.properties-panel .prop-asset-head>img,.prop-glyph{flex:0 0 38px;width:38px;height:38px;object-fit:cover;border:1px solid var(--hairline-strong);background:var(--bg-deep)}
+.prop-asset-head{display:flex;align-items:center;gap:6px;padding-right:10px}
+.properties-panel .prop-asset-toggle{display:flex;align-items:center;gap:10px;flex:1;min-width:0;padding:9px 0 9px 10px;border:0;background:none;color:inherit;text-align:left;cursor:pointer}
+.properties-panel .prop-asset-toggle:focus-visible{outline:1px solid var(--nutrient);outline-offset:-2px}
+.properties-panel .prop-asset-toggle>img,.prop-glyph{flex:0 0 38px;width:38px;height:38px;object-fit:cover;border:1px solid var(--hairline-strong);background:var(--bg-deep)}
 .prop-glyph{display:flex;align-items:center;justify-content:center;font:600 7.5px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--chrome);overflow:hidden}
 .prop-asset-title{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .prop-asset-title strong{font:560 12.5px/1.3 var(--font-display);color:var(--text-bright);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -56,6 +57,23 @@
 .prop-chip.superseded{color:var(--text-muted);text-decoration:line-through}
 .prop-chip.draft{color:var(--chrome)}
 
+/* Status picker: the header chip opens a small menu of radio items. */
+.prop-status-picker{position:relative;flex-shrink:0}
+.properties-panel button.prop-chip{cursor:pointer;display:inline-flex;align-items:center;gap:5px;font:500 10px/1.4 var(--font-mono);letter-spacing:.12em}
+.properties-panel button.prop-chip:hover:not(:disabled){border-color:var(--chrome);color:var(--text-bright)}
+.properties-panel button.prop-chip:focus-visible{outline:1px solid var(--nutrient);outline-offset:2px}
+.properties-panel button.prop-chip:disabled{opacity:.6;cursor:progress}
+.prop-chip-caret{width:0;height:0;border-left:3px solid transparent;border-right:3px solid transparent;border-top:4px solid currentColor;opacity:.75}
+.prop-status-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:5;min-width:132px;margin:0;padding:3px;list-style:none;background:var(--bg-deep);border:1px solid var(--hairline-strong);box-shadow:0 8px 24px #0006}
+.properties-panel .prop-status-menu button{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border:0;background:none;color:var(--text-dim);font:500 10px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;text-align:left;cursor:pointer}
+.properties-panel .prop-status-menu button:is(:hover,:focus-visible){background:var(--surface-2);color:var(--text-bright);outline:none}
+.properties-panel .prop-status-menu button[aria-checked=true]{color:var(--text-bright)}
+.properties-panel .prop-status-menu button.review span{color:var(--nutrient)}
+.properties-panel .prop-status-menu button.approved span{color:var(--servo)}
+.prop-history{display:flex;flex-direction:column;gap:2px;margin:0 0 8px;font:10px/1.5 var(--font-mono);letter-spacing:.04em;color:var(--text-muted)}
+.prop-history span:first-child{color:var(--text-dim)}
+.prop-unlinked{margin:4px 0 0;font:10px/1.5 var(--font-mono);color:var(--text-muted)}
+
 .prop-detail{padding:0 12px 12px}
 .prop-detail section{padding:9px 0 8px;border-top:1px dashed var(--prop-line)}
 .prop-detail h4{display:flex;align-items:baseline;gap:7px;margin:0 0 6px;font:500 10px var(--font-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--chrome)}
@@ -65,10 +83,25 @@
 .properties-panel .prop-thumb span{position:absolute;left:6px;bottom:5px;padding:1px 5px;font:10px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text-bright);background:rgba(9,7,7,.72)}
 
 .prop-jobs,.prop-files,.prop-notes{list-style:none;margin:6px 0 0;padding:0}
-.prop-jobs li{display:grid;grid-template-columns:1fr auto auto;gap:10px;padding:4px 0;border-bottom:1px solid var(--prop-line);font:10px var(--font-mono);color:var(--text)}
-.prop-jobs li small{font-size:inherit;color:var(--text-muted)}
-.prop-jobs time{color:var(--text-muted)}
-.prop-jobs b{font-weight:500;color:var(--nutrient);font-variant-numeric:tabular-nums}
+.prop-jobs-fold{margin-top:6px}
+.prop-jobs-fold summary{cursor:pointer;padding:3px 0;font:500 10px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--chrome)}
+.prop-jobs-fold summary:focus-visible{outline:1px solid var(--nutrient);outline-offset:2px}
+.prop-job{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--prop-line)}
+.properties-panel .prop-job-thumb{flex:0 0 40px;width:40px;height:40px;padding:0;border:1px solid var(--hairline-strong);background:var(--bg-deep);cursor:zoom-in}
+.prop-job-thumb img{display:block;width:100%;height:100%;object-fit:cover}
+.prop-job-body{flex:1;min-width:0}
+.prop-job-line{display:grid;grid-template-columns:1fr auto auto;gap:10px;font:10px var(--font-mono);color:var(--text)}
+.prop-job-line small{font-size:inherit;color:var(--text-muted)}
+.prop-job-line time{color:var(--text-muted)}
+.prop-job-line b{font-weight:500;color:var(--nutrient);font-variant-numeric:tabular-nums}
+.prop-job-note{margin:3px 0 0;font-size:11px;line-height:1.45;color:var(--text-dim);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.prop-job-actions{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.properties-panel .prop-job-actions button,.properties-panel .prop-note-actions button,.properties-panel .prop-triage button,.properties-panel .prop-note-edit button.quiet{padding:2px 6px;border:1px solid var(--hairline-strong);border-radius:var(--radius-sm);background:transparent;color:var(--text-dim);font:500 9.5px var(--font-mono);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.properties-panel :is(.prop-job-actions,.prop-note-actions,.prop-triage) button:is(:hover,:focus-visible):not(:disabled){color:var(--servo);border-color:color-mix(in srgb,var(--servo) 45%,transparent)}
+.properties-panel :is(.prop-note-actions,.prop-triage) button:disabled{opacity:.45;cursor:default}
+.properties-panel .prop-job-actions :is(.prop-job-id,.prop-job-file){text-transform:none;letter-spacing:.02em}
+.prop-triage-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.prop-triage select{flex:1;min-width:0;padding:4px 6px;border:1px solid var(--hairline-strong);border-radius:var(--radius-sm);background:var(--bg-deep);color:var(--text);font:10.5px var(--font-mono)}
 .prop-flags{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
 .prop-flag{padding:2px 7px;border:1px solid var(--hairline-strong);font:10px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text-muted)}
 .prop-flag.on{color:var(--nutrient);border-color:color-mix(in srgb,var(--nutrient) 45%,transparent);background:var(--amber-dim)}
@@ -85,23 +118,24 @@
 .prop-notes header{display:flex;justify-content:space-between;gap:8px;font:10px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
 .prop-notes header b{font-weight:500;color:var(--chrome)}
 .prop-notes p{margin:4px 0 0;font-size:11.5px;line-height:1.55;color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere}
+.prop-notes li.retracted p{text-decoration:line-through;color:var(--text-muted)}
+.prop-note-meta{display:block;margin-top:3px;font:10px var(--font-mono);color:var(--text-muted)}
+.prop-note-actions{display:flex;gap:4px;margin-top:5px}
+.prop-note-edit div{display:flex;justify-content:flex-end;gap:6px}
 .prop-empty-line{margin:4px 0 0;font:10px var(--font-mono);color:var(--text-muted)}
 
-.prop-status-set{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-top:10px;padding:3px;background:var(--bg-deep);border:1px solid var(--prop-line)}
-.properties-panel .prop-status-set button{padding:6px 3px;border:0;background:transparent;color:var(--text-dim);font:500 10px var(--font-mono);letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
-.properties-panel .prop-status-set button:hover:not(:disabled){background:var(--surface-2);color:var(--text-bright)}
-/* The current status is the strongest state: a solid status fill, never the disabled look. */
-.properties-panel .prop-status-set button[aria-pressed=true]{cursor:default;opacity:1;font-weight:600;color:var(--bg);background:var(--text-dim)}
-.properties-panel .prop-status-set button.draft[aria-pressed=true]{background:var(--chrome)}
-.properties-panel .prop-status-set button.review[aria-pressed=true]{background:var(--nutrient)}
-.properties-panel .prop-status-set button.approved[aria-pressed=true]{background:var(--servo)}
-.properties-panel .prop-status-set button:disabled:not([aria-pressed=true]){opacity:.45;cursor:default}
 .prop-note{display:flex;flex-direction:column;gap:6px;margin-top:8px}
 .prop-note textarea{width:100%;resize:vertical;min-height:44px;padding:7px 8px;border:1px solid var(--hairline-strong);border-radius:var(--radius-sm);background:var(--bg-deep);color:var(--text);font:11.5px/1.5 var(--font-body);outline:none}
 .prop-note textarea:focus{border-color:color-mix(in srgb,var(--nutrient) 60%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--nutrient) 25%,transparent)}
 .properties-panel .prop-note button{align-self:flex-end;padding:5px 11px;border:1px solid color-mix(in srgb,var(--servo) 45%,transparent);border-radius:var(--radius-sm);background:var(--pink-dim);color:var(--servo);font:500 10px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;cursor:pointer}
 .properties-panel .prop-note button:disabled{opacity:.4;cursor:default}
 
+.prop-toast-slot{flex-shrink:0;padding:0 14px}
+.prop-toast{display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:8px 10px;border:1px solid var(--hairline-strong);border-left:2px solid var(--nutrient);background:var(--bg-deep);font:10.5px/1.45 var(--font-mono);color:var(--text)}
+.prop-toast span{flex:1;min-width:0;overflow-wrap:anywhere}
+.properties-panel .prop-toast button{flex-shrink:0;padding:3px 8px;border:1px solid color-mix(in srgb,var(--nutrient) 50%,transparent);border-radius:var(--radius-sm);background:var(--amber-dim);color:var(--nutrient);font:500 10px var(--font-mono);letter-spacing:.1em;text-transform:uppercase;cursor:pointer}
+.properties-panel .prop-toast button.prop-toast-close{border:0;background:none;color:var(--text-muted);font-size:14px;padding:0 2px}
+html[data-workspace-theme=light] .prop-toast{background:var(--surface-2)}
 .prop-loading,.prop-empty,.prop-problem{margin:10px 2px;font:10.5px/1.6 var(--font-mono);color:var(--text-muted)}
 .prop-loading{padding:0 12px 12px;margin:0}
 .properties-panel .prop-empty button{border:0;background:none;padding:0;color:var(--servo);font:inherit;text-decoration:underline;cursor:pointer}
@@ -111,5 +145,10 @@
 html[data-workspace-theme=light] .prop-scope{background-color:var(--surface-2)}
 html[data-workspace-theme=light] .prop-asset{background-color:#fff;border-color:var(--hairline-strong)}
 html[data-workspace-theme=light] .prop-asset.open{background-color:var(--surface-1)}
-html[data-workspace-theme=light] :is(.prop-status-set,.prop-note textarea,.prop-asset-head>img,.prop-glyph,.prop-thumb){background-color:var(--surface-2)}
+html[data-workspace-theme=light] :is(.prop-status-menu,.prop-triage select,.prop-note textarea,.prop-asset-toggle>img,.prop-glyph,.prop-thumb){background-color:var(--surface-2)}
 html[data-workspace-theme=light] .prop-thumb span{background:#ffffffd9;color:var(--text-bright)}
+
+/* Link intake success line (FilesRail): the next steps into Properties. */
+.link-intake .link-intake-next{display:flex;align-items:center;gap:6px}
+.link-intake .link-intake-next button{padding:0;border:0;background:none;color:var(--servo);font:500 10.5px var(--font-mono);letter-spacing:.06em;text-transform:none;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.link-intake .link-intake-next button:focus-visible{outline:1px solid var(--nutrient);outline-offset:2px}

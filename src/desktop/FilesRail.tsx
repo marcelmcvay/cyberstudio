@@ -130,7 +130,8 @@ export default function FilesRail() {
   const [linkOpen, setLinkOpen] = useState(false)
   const [link, setLink] = useState({ url: '', title: '', from: '' })
   const [adding, setAdding] = useState(false)
-  const [linkNote, setLinkNote] = useState<{ error: boolean; text: string } | null>(null)
+  const [linkNote, setLinkNote] = useState<{ error: boolean; text: string; asset?: { id: string; file: string | null } } | null>(null)
+  const [focusAsset, setFocusAsset] = useState<{ id: string; at: number } | null>(null)
   const copyLock = useRef(false)
   const internalDrag = useRef<{ path: string; directory: boolean; handled: boolean } | null>(null)
   const recycleLock = useRef(false)
@@ -228,7 +229,7 @@ export default function FilesRail() {
     setAdding(true); setLinkNote({ error: false, text: 'Downloading link into the inbox…' })
     try {
       const result = await addLink({ url: link.url.trim(), title: link.title.trim() || undefined, from: link.from.trim() || undefined })
-      setLinkNote({ error: false, text: `Added ${result.relative} · ${result.asset.kind} · ${result.asset.files.length} ${result.asset.files.length === 1 ? 'file' : 'files'}.` })
+      setLinkNote({ error: false, text: `Added ${result.relative} · ${result.asset.kind} · ${result.asset.files.length} ${result.asset.files.length === 1 ? 'file' : 'files'}.`, asset: { id: result.id, file: result.asset.files[0]?.path || null } })
       setLink(current => ({ url: '', title: '', from: current.from }))
       openInbox(result.path); refresh()
     } catch (error) { setLinkNote({ error: true, text: message(error) }) }
@@ -268,7 +269,7 @@ export default function FilesRail() {
   return <aside className={`files-container ${open ? 'expanded' : ''}`}>
     {open && panel === 'settings' && <WorkspaceSettings onClose={() => setOpen(false)} />}
     {open && panel === 'mcp' && <McpPanel onClose={() => setOpen(false)} />}
-    {open && panel === 'properties' && <PropertiesPanel onClose={() => setOpen(false)} />}
+    {open && panel === 'properties' && <PropertiesPanel onClose={() => setOpen(false)} focus={focusAsset} />}
     {open && (panel === 'files' || panel === 'skills') && <div className="files-panel"><header><h2>{panel === 'skills' ? 'Skills' : 'Files'}</h2><div>
       {panel === 'files' && <button className={`desk-icon ${linkOpen ? 'active' : ''}`} onClick={() => setLinkOpen(!linkOpen)} title="Add a Dropbox, Drive or web link to the inbox" aria-label="Add link" aria-expanded={linkOpen}><Icon name="link" size={15} /></button>}
       <button className="desk-icon" disabled={copying} onClick={() => input.current?.click()} title={`Copy files into ${fileName(destination)}`} aria-label="Add files"><Icon name="plus" size={16} /></button>
@@ -282,7 +283,11 @@ export default function FilesRail() {
         <div className="link-intake-row"><input id="link-intake-url" value={link.url} onChange={event => setLink({ ...link, url: event.target.value })} placeholder="https://www.dropbox.com/…" spellCheck={false} autoFocus disabled={adding} /><button type="submit" disabled={adding || !link.url.trim()}>{adding ? 'Adding' : 'Add'}</button></div>
         <div className="link-intake-row"><input value={link.title} onChange={event => setLink({ ...link, title: event.target.value })} placeholder="Title (optional)" aria-label="Title" disabled={adding} /><input value={link.from} onChange={event => setLink({ ...link, from: event.target.value })} placeholder="From (optional)" aria-label="From" disabled={adding} /></div>
         <small>Dropbox, Drive or public links · 500 MB max</small>
-        <div className="link-intake-status" aria-live="polite">{linkNote && <p className={linkNote.error ? 'desk-error-inline' : undefined}>{linkNote.text}</p>}</div>
+        <div className="link-intake-status" aria-live="polite">{linkNote && <p className={linkNote.error ? 'desk-error-inline' : undefined}>{linkNote.text}</p>}{linkNote?.asset && <p className="link-intake-next">
+          {linkNote.asset.file && <button type="button" onClick={() => api<Preview>(`/preview?path=${encodeURIComponent(`${repo}/${linkNote.asset?.file}`)}`).then(setPreview).catch(reportError)}>Preview</button>}
+          {linkNote.asset.file && <span aria-hidden="true"> · </span>}
+          <button type="button" onClick={() => { const id = linkNote.asset?.id; if (!id) return; setFocusAsset({ id, at: Date.now() }); setPanel('properties'); setOpen(true) }}>Open in Properties</button>
+        </p>}</div>
       </form>}</> : <div className="skill-locations">{[['Claude', '.claude/skills'], ['Codex', '.agents/skills'], ['Knowledge', 'knowledge'], ['Processes', 'processes']].map(([label, path]) => <button key={path} aria-pressed={pathKey(root) === pathKey(`${repo}/${path}`)} onClick={() => { setMode('all'); navigate(`${repo}/${path}`) }}>{label}</button>)}<p>Project skills · open a SKILL.md to read or edit.</p></div>}
       <form className="file-path" onSubmit={event => { event.preventDefault(); setMode('all'); navigate(typedPath) }}><button type="button" title="Parent folder" onClick={() => { setMode('all'); navigate(rootFolder?.parent || repo) }}><Icon name="up" size={15} /></button><input value={typedPath} onChange={event => setTypedPath(event.target.value)} spellCheck={false} aria-label="Folder path" /><button type="submit" title="Open folder"><Icon name="arrow" size={14} /></button></form>
       <div className="file-filter"><Icon name="search" size={14} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Filter file names…" aria-label="Filter file names in expanded folders" /></div>

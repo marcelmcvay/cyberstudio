@@ -2,6 +2,7 @@ import type { WorkspaceEntity } from '../types'
 import MakCard from './MakCard'
 import MakLogo from './MakLogo'
 import type { ViewRow } from './Sidebar'
+import { useReviewTotal } from '../lib/reviewCounts'
 
 interface HomeGridProps {
   entities: WorkspaceEntity[]
@@ -80,6 +81,7 @@ export default function HomeGrid({
   viewLabel = '',
   onOpenRow,
 }: HomeGridProps) {
+  const inReview = useReviewTotal()
   if (viewRows) return <ViewGallery rows={viewRows} label={viewLabel} onOpen={onOpenRow} />
   const activeCount = entities.filter(e => e.status === 'active').length
   const categoryCount = new Set(entities.map(e => e.category || 'other')).size
@@ -92,6 +94,7 @@ export default function HomeGrid({
         <div>
           <h1 className="home-title">{greeting()}</h1>
           <p className="home-sub">
+            {inReview > 0 && <><b className="home-review">{inReview}</b> in review · </>}
             <b>{activeCount}</b> active · <b>{entities.length}</b> entities ·{' '}
             <b>{categoryCount}</b> categories
             {offline && <span className="home-offline"> · workspace.json unreachable</span>}

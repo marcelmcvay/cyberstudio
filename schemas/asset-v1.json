@@ -131,12 +131,31 @@
             "properties": {
               "at": { "type": "string", "format": "date-time" },
               "by": { "type": "string" },
-              "text": { "type": "string", "maxLength": 2000 }
+              "text": { "type": "string", "maxLength": 2000 },
+              "edited_at": { "type": "string", "format": "date-time", "description": "Set when the author edits the note inside the 10 minute window." },
+              "retracted_at": { "type": "string", "format": "date-time", "description": "Set when the author retracts the note. The text stays for the record." }
             }
           }
         },
         "approved_by": { "type": "string" },
-        "approved_at": { "type": "string", "format": "date-time" }
+        "approved_at": { "type": "string", "format": "date-time" },
+        "history": {
+          "type": "array",
+          "description": "Status changes made by people, oldest first. Written by the Properties panel. A revert from approved moves approved_by and approved_at into its entry.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["at", "by", "status"],
+            "properties": {
+              "at": { "type": "string", "format": "date-time" },
+              "by": { "type": "string" },
+              "status": { "enum": ["draft", "review", "approved", "superseded"] },
+              "from": { "enum": ["draft", "review", "approved", "superseded"] },
+              "approved_by": { "type": "string" },
+              "approved_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
       }
     }
   },

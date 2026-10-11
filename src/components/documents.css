@@ -23,3 +23,7 @@ div.document-toolbar button{border:1px solid var(--hairline);background:transpar
 .home .entity-card:not([data-entity="my-dream-game"]) .card-foot{padding-top:11px;border-top:1px solid var(--hairline);color:var(--text-muted);font:500 10px/1 var(--font-mono);letter-spacing:.08em;text-transform:uppercase}.home .entity-card:not([data-entity="my-dream-game"]) .card-open{color:var(--servo)}
 .home .entity-card .chip{font:500 10px/1 var(--font-mono);letter-spacing:.1em;padding:4px 7px;border-radius:2px}
 .home .entity-card:focus-visible{box-shadow:0 3px 12px #0002,var(--focus-ring);outline:2px solid var(--pink);outline-offset:2px}
+/* Review chip: what needs the user on a card or menu row ("2 in review"). Text, not a color dot. */
+.review-chip{flex-shrink:0;margin-left:auto;padding:3px 7px;border:1px solid color-mix(in srgb,var(--nutrient) 50%,transparent);border-radius:2px;background:var(--amber-dim);color:var(--nutrient);font:500 10px/1 var(--font-mono);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
+.sidebar-item .review-chip{padding:2px 5px;font-size:9.5px;letter-spacing:.04em}
+.home-sub b.home-review{color:var(--nutrient)}

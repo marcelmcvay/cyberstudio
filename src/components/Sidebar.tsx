@@ -5,6 +5,7 @@ import { categoryIcon } from '../lib/categories'
 import { contentUrl } from '../desktop/client'
 import MakLogo from './MakLogo'
 import MakText from './MakText'
+import { reviewLabel, useReviewCount } from '../lib/reviewCounts'
 import './views.css'
 
 /** One card in a review view. step -1 means it does not have the view's tab yet. */
@@ -39,6 +40,7 @@ interface SidebarProps {
 const heroUrl = (e: WorkspaceEntity) => contentUrl(`/workspace/${e.folder}/${e.hero}`)
 
 function Item({ entity, active }: { entity: WorkspaceEntity; active: boolean }) {
+  const inReview = useReviewCount(entity.id)
   return (
     <a
       href={entityHash(entity.id)}
@@ -51,7 +53,8 @@ function Item({ entity, active }: { entity: WorkspaceEntity; active: boolean }) 
           : categoryIcon(entity.category)}
       </span>
       <span className="item-text">{entity.title}</span>
-      <span className={`status-dot ${entity.status}`} title={entity.status} />
+      {inReview > 0 ? <span className="review-chip">{reviewLabel(inReview)}</span>
+        : entity.status !== 'active' && <span className={`status-dot ${entity.status}`} title={entity.status} />}
     </a>
   )
 }

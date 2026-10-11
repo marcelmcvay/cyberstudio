@@ -71,8 +71,32 @@ directory.
 
 `scripts/doctor` reports sidecar health under Budget.
 
+## Review from the Properties panel
+
+Tools never approve. Only a person sets `status`, from the status chip in each
+asset header. The service writes these people fields through
+`PATCH /api/assets/<id>`:
+
+- **Status history.** Every change appends `{ at, by, status, from }` to
+  `review.history`, oldest first. Approving sets `review.approved_by` and
+  `review.approved_at`. Moving away from approved moves both into that
+  history entry and removes them, so the sidecar never claims a lost approval.
+- **Undo.** The toast after a change sends `{ status: <previous>, undo: true }`.
+  Undo removes the last history entry instead of adding one, and restores an
+  approval it archived. It only works on the latest change, for 5 minutes.
+- **Notes.** `{ note }` adds one. The author can edit (`{ noteEdit: { index,
+  text } }`, sets `edited_at`) or delete (`{ noteDelete: index }`) for 10
+  minutes. After that, `{ noteRetract: index }` keeps the text and sets
+  `retracted_at`. Notes by other authors, such as tools, stay as written.
+- **Cards.** `{ cards: [...] }` replaces the card list. Inbox triage uses it to
+  assign an asset to a card.
+
+`GET /api/assets/<id>` also returns `job_previews`: job ids mapped to an
+image a receipt JSON names. It is derived on read and never written.
+
 ## Editing by hand
 
 Change people fields freely, then run `check`. Never delete an old asset.
 Set `status: superseded` and `superseded_by: <new id>`. Review notes go in
-`review.notes` as `{ at, by, text }`.
+`review.notes` as `{ at, by, text }`, with optional `edited_at` and
+`retracted_at`. Status changes go in `review.history`.

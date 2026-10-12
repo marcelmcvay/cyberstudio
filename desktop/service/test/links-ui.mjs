@@ -1,5 +1,5 @@
 // Isolated fake chats and local documents. No production session is touched.
-import { chromium } from '@playwright/test';
+import { launchTestBrowser, realPageErrors, testPermissions } from '../../../scripts/lib/test-browser.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -19,7 +19,7 @@ service.sessions.items.set(session.id, session); await service.sessions.hydrate(
 session.process = { write() {}, resize() {}, kill() {} };
 let browser;
 try {
-  browser = await chromium.launch({ headless: true, channel: process.env.MRMAK_TEST_BROWSER || 'msedge' });
+  browser = await launchTestBrowser();
   const context = await browser.newContext({ viewport: { width: 650, height: 740 } });
   await context.route('https://browser-check.example/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>External destination</h1>' }));
   const page = await context.newPage(); page.setDefaultTimeout(10000);
@@ -62,7 +62,7 @@ try {
   await terminalLink(external, 'https://browser-check.example/page', external);
   await terminalLink(wrapped, 'https://browser-check.example/wrapped', wrapped);
   await terminalLink(`\x1b]8;;${external}\x07Agent citation\x1b]8;;\x07`, 'Agent citation', external);
-  assert.deepEqual(errors, []);
+  assert.deepEqual(realPageErrors(errors), []);
   console.log('Links UI passed: plain and wrapped terminal URLs, OSC 8 citations with mouse tracking, Markdown and HTML popups; local sections and download links preserved.');
 } finally {
   await browser?.close(); session.process = null; await service.close();

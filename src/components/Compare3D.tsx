@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Compare3DManifest, Compare3DTest } from '../types'
 import { ModelViewer, type CameraState, type ShadingMode, type ViewerStats } from '../lib/three/viewer'
-import { ignoreViewerKey } from '../lib/viewerKeys'
+import { ignoreViewerKey, shadingFromKey, SHADING_MODES } from '../lib/viewerKeys'
+import ViewerHint from './ViewerHint'
 
 /**
  * Side-by-side 3D comparison card.
@@ -12,30 +13,7 @@ import { ignoreViewerKey } from '../lib/viewerKeys'
  * textured PBR view — set per test in the manifest.
  */
 
-interface ModeDef {
-  id: ShadingMode
-  label: string
-  hint: string
-}
-
-const GEOMETRY_MODES: ModeDef[] = [
-  { id: 'wire', label: 'Wireframe', hint: 'The mesh — quads where the export keeps them' },
-  { id: 'solid', label: 'Clay', hint: 'Untextured clay — shape and silhouette only' },
-  { id: 'normals', label: 'Normals', hint: 'Geometry normals — smoothing and flipped faces' },
-]
-
-// A channel the generator never baked shows as its flat fallback (blue for a
-// missing normal map, grey for roughness). That is a finding worth filming, so
-// these stay switchable even when the map is absent.
-const TEXTURE_MODES: ModeDef[] = [
-  { id: 'pbr', label: 'Textured', hint: 'Authored materials with environment lighting' },
-  { id: 'albedo', label: 'Base color', hint: 'Base colour map, unlit' },
-  { id: 'normalMap', label: 'Normal map', hint: 'The normal map itself — flat blue means none was baked' },
-  { id: 'rough', label: 'Roughness', hint: 'Roughness map, or the flat material value' },
-  { id: 'metal', label: 'Metalness', hint: 'Metalness map, or the flat material value' },
-]
-
-const ALL_MODES = [...GEOMETRY_MODES, ...TEXTURE_MODES]
+const ALL_MODES = SHADING_MODES
 
 const fmt = (n: number) => n.toLocaleString('en-US')
 const COUNT_NOTE = /\b(triangles?|tris|faces|polys?|polygons?)\b/i
@@ -275,9 +253,9 @@ export default function Compare3D({ manifestUrl, baseUrl }: { manifestUrl: strin
       // SELECT is skipped because the dropdown handles arrows natively; without
       // this the test would advance twice on one keypress.
       if (ignoreViewerKey(ev)) return
-      const n = Number(ev.key)
-      if (n >= 1 && n <= ALL_MODES.length) {
-        setMode(ALL_MODES[n - 1].id)
+      const shading = shadingFromKey(ev)
+      if (shading) {
+        setMode(shading)
       } else if (ev.key === 'ArrowLeft' && testCount) {
         setTestIndex(i => (i - 1 + testCount) % testCount)
       } else if (ev.key === 'ArrowRight' && testCount) {
@@ -413,6 +391,7 @@ export default function Compare3D({ manifestUrl, baseUrl }: { manifestUrl: strin
       </div>
 
       <div className="c3d-panes">
+        <ViewerHint keys="1-8 shading · Space spin · S sync · arrows step tests" />
         {test.models.map(m => (
           <PaneSlot
             key={`${test.id}:${m.file}`}

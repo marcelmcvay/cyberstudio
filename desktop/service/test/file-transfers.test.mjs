@@ -115,3 +115,37 @@ test('internal drops move files, same-folder drops do nothing, collisions retain
   await assert.rejects(recyclePath(repo, repo), /project folder/);
   assert.equal(await recyclePath(result.path, repo), result.path);
 });
+
+test('trash stages project items for undo, then hands them to the OS trash', async () => {
+  const { TrashStage } = await import('../file-transfers.mjs');
+  const repo = await fixture(), events = [];
+  const file = path.join(repo, 'inbox', 'note.txt');
+  await writeFile(file, 'keep me');
+  const trash = new TrashStage(repo, { native: event => events.push(event), holdMs: 60000 });
+  const staged = await trash.stage(file);
+  assert.equal(staged.path, file);
+  await assert.rejects(readFile(file), { code: 'ENOENT' });
+  assert.equal(await readFile(path.join(repo, '.trash', '.gitignore'), 'utf8'), '*\n');
+  // Undo restores the exact bytes and clears the stamp folder.
+  assert.deepEqual(await trash.restore(staged.id), { path: file, restored: true });
+  assert.equal(await readFile(file, 'utf8'), 'keep me');
+  assert.deepEqual((await readdir(path.join(repo, '.trash'))).filter(name => name !== '.gitignore'), []);
+  await assert.rejects(trash.restore(staged.id), /Too late/);
+  // A new file at the old path is never overwritten by an undo.
+  const again = await trash.stage(file);
+  await writeFile(file, 'newer');
+  await assert.rejects(trash.restore(again.id), /Nothing was restored/);
+  assert.equal(await readFile(file, 'utf8'), 'newer');
+  // Expiry hands the staged copy to the native trash.
+  trash.flush(again.id);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].type, 'recycle-file');
+  assert.match(events[0].path, /[\\/]\.trash[\\/][^\\/]+[\\/]note\.txt$/);
+  // Items outside the project are not staged; the caller recycles them directly.
+  assert.equal(await trash.stage(path.dirname(repo)), null);
+  // A restart empties leftovers.
+  const later = new TrashStage(repo, { native: event => events.push(event) });
+  await later.sweep();
+  assert.equal(events.length, 2);
+  trash.close(); later.close();
+});

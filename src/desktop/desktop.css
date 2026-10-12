@@ -146,3 +146,44 @@
 .switcher-list>button.highlighted,.history-item.highlighted{background:#eba8a10f;box-shadow:inset 2px 0 0 #dfa29b}
 .stopped-dot{width:5px;height:5px;border-radius:50%;background:#8f847d}
 .history-filters{flex-wrap:wrap}
+/* Files rail: hover trash button, right-click menu and the undo toast (W-09). */
+.file-trash{position:absolute;right:3px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:0;border-radius:4px;background:transparent;color:#b7a99f;opacity:0;pointer-events:none;transition:opacity .1s ease}
+.file-entry.has-reveal>.file-trash{right:31px}
+.file-entry.has-trash>.file-row{padding-right:32px}.file-entry.has-trash.has-reveal>.file-row{padding-right:60px}
+.file-entry:hover>.file-trash,.file-entry:focus-within>.file-trash{opacity:1;pointer-events:auto}
+.file-trash:hover{color:#ffb4a8;background:#ff6a5520}.file-trash:focus-visible{outline:1px solid #c3b8b0;outline-offset:-1px}
+.file-menu{position:fixed;z-index:120;min-width:190px;padding:4px;border:1px solid #ffffff1c;border-radius:8px;background:#26201d;box-shadow:0 10px 30px #0008;display:flex;flex-direction:column}
+.file-menu button{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:7px 10px;border:0;border-radius:5px;background:transparent;color:#ece5e1;font-size:12px;text-align:left;cursor:pointer}
+.file-menu button:hover,.file-menu button:focus-visible{background:#eba8a11c;outline:none}
+.file-menu kbd{font:11px var(--font-mono);color:#b5a89f}
+.file-undo{position:absolute;z-index:110;right:calc(100% + 16px);bottom:18px;display:flex;align-items:center;gap:10px;max-width:min(420px,calc(100vw - 140px));padding:8px 8px 8px 14px;border:1px solid #ffffff1c;border-radius:9px;background:#26201d;color:#ece5e1;font-size:12px;box-shadow:0 10px 30px #0007}
+.file-undo>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-undo button{flex-shrink:0;padding:5px 12px;border:1px solid #ff8a7a55;border-radius:6px;background:#ff6a5518;color:#ffd1ca;font-size:12px;font-weight:600;cursor:pointer}
+.file-undo button.file-undo-close{padding:2px 8px;border:0;background:transparent;color:#b5a89f;font-weight:400;font-size:15px}
+.file-undo button:focus-visible{outline:2px solid var(--pink);outline-offset:1px}
+html[data-workspace-theme=light] :is(.file-menu,.file-undo){background:#fff;border-color:var(--hairline-strong);color:var(--text);box-shadow:0 10px 30px #0002}
+html[data-workspace-theme=light] .file-menu button{color:var(--text)}html[data-workspace-theme=light] .file-menu button:hover{background:#f3eeeb}
+html[data-workspace-theme=light] :is(.file-menu kbd,.file-undo button.file-undo-close){color:var(--text-dim)}
+html[data-workspace-theme=light] .file-undo button:not(.file-undo-close){color:#a2281c;border-color:#c9483a66;background:#fdeeec}
+html[data-workspace-theme=light] .file-trash{color:var(--pink)}
+/* Cy eye gutter (W-18): the eye stays floating bottom left. Workspace scroll areas
+   end with room for it, and over a 3D canvas it fades until hovered. */
+.workspace-root{--cy-gutter:88px}
+.workspace-root :is(.home,.sidebar-list,.markdown-reader){padding-bottom:var(--cy-gutter);scroll-padding-bottom:var(--cy-gutter)}
+.workspace-root .file-preview-body>pre{padding-bottom:var(--cy-gutter)}
+.voice-dock.workspace .voice-controls{transition:opacity .25s ease}
+.voice-dock.workspace.over-canvas:not(.panel-open):not(.is-live) .voice-controls:not(:hover):not(:focus-within){opacity:.28}
+@media (prefers-reduced-motion:reduce){.voice-dock.workspace .voice-controls{transition:none}}
+/* Chats contrast and size floor (C-22). Chats keeps its own dark palette in both
+   Workspace themes, so these literals cover light mode too. Muted text #a0958e
+   is at least 5.2:1 on every Chats surface (#141110 to #2a2420); UI text is 11 px
+   or larger. Disabled agent choices drop the 40% fade and stay readable. */
+.chats-root :is(.chat-context,.agent-label,.chat-status,.history-button,.history-filters button,.chat-history>footer,.chat-history header small,.history-open small,.history-open p,.switcher-list small,.switcher-state,.desk-eyebrow,.chats-empty>small,.agent-choice small,.agent-choice span:nth-child(2),.desk-field,.desk-field>small,.desk-details,.desk-details>p,.chat-color-setting>span,.terminal-appearance-setting>span,.terminal-appearance-setting small,.terminal-appearance-setting>p,.chat-options .terminal-appearance-setting button,.terminal-reconnect,.terminal-reconnect button,.chat-status .attachment-status){font-size:11px!important}
+.chats-root :is(.chat-context,.chat-status,.chat-history>footer,.chat-history header small,.history-open small,.switcher-list small,.chats-empty>small,.agent-choice small,.desk-field>small,.terminal-appearance-setting small,.terminal-appearance-setting>p){color:#a0958e}
+.chats-root :is(.agent-label,.status-shortcut){opacity:1}
+.chats-root .history-open p{color:#a69b94}
+.chats-root .desk-eyebrow{letter-spacing:1.2px}
+.chats-root .agent-choice:disabled{opacity:1}
+.chats-root .agent-choice:disabled>span:nth-child(2){color:#a0958e}
+.chats-root .agent-choice:disabled :is(img,svg){opacity:.5}
+.chats-root .desk-dialog small{font-size:11px!important}

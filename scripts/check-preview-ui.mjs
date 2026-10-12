@@ -1,6 +1,6 @@
 // Exercise browser-only preview with the real predev setup, including a failed lazy import.
 // No desktop service, CLI sessions, or user profile is opened.
-import { chromium } from '@playwright/test';
+import { launchTestBrowser, realPageErrors } from './lib/test-browser.mjs';
 import { createServer } from 'vite';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -17,7 +17,7 @@ let browser;
 try {
   await server.listen();
   const url = server.resolvedUrls.local[0];
-  browser = await chromium.launch({ channel: process.env.MRMAK_TEST_BROWSER || 'msedge', headless: true });
+  browser = await launchTestBrowser();
   const page = await browser.newPage();
   page.setDefaultTimeout(15000);
   const errors = [];
@@ -48,7 +48,7 @@ try {
     await page.getByRole('button', { name: 'Workspace', exact: true }).click();
     await page.locator('.entity-card').first().waitFor();
   }
-  assert.deepEqual(errors, []);
+  assert.deepEqual(realPageErrors(errors), []);
 
   // Exercise Markdown images as well as links against a root-relative document.
   const mdEntity = entities.find(entity => entity.steps.some(step => /\.md$/i.test(step.path)));
@@ -71,18 +71,18 @@ try {
   await page.getByRole('img', { name: 'Reference', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Image preview', exact: true });
   await dialog.waitFor();
-  assert.equal(await dialog.evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(12, 13, 17)');
+  assert.equal(await dialog.evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(16, 14, 13)');
   assert.equal(await dialog.evaluate(node => getComputedStyle(node).display), 'flex');
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   await dialog.waitFor({ state: 'hidden' });
-  assert.deepEqual(errors, []);
+  assert.deepEqual(realPageErrors(errors), []);
 
   // Browser-only Settings use local storage and style embedded reports too.
   await page.getByRole('button', { name: 'Workspace settings', exact: true }).click();
   await page.getByLabel('Workspace theme', { exact: true }).selectOption('light');
   await page.getByRole('button', { name: 'Workspace settings', exact: true }).click();
   assert.equal(await page.locator('html').getAttribute('data-workspace-theme'), 'light');
-  assert.equal(await page.locator('.mak-markdown h1').evaluate(node => getComputedStyle(node).color), 'rgb(17, 21, 33)');
+  assert.equal(await page.locator('.mak-markdown h1').evaluate(node => getComputedStyle(node).color), 'rgb(21, 17, 14)');
   await page.getByRole('img', { name: 'Reference', exact: true }).click();
   await dialog.waitFor();
   assert.equal(await dialog.evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(242, 244, 247)');
@@ -95,7 +95,7 @@ try {
   await page.reload();
   await page.locator('.report-document[aria-busy=false]').waitFor();
   assert.equal(await page.locator('html').getAttribute('data-workspace-theme'), 'light');
-  assert.deepEqual(errors, []);
+  assert.deepEqual(realPageErrors(errors), []);
 
   // A blocked module used to unmount the entire React tree. Keep navigation,
   // show the actual error, and let a reload recover once the block is gone.

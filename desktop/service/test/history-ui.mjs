@@ -1,6 +1,6 @@
 // Exercise the actual History -> resume -> close -> restart flow with isolated
 // native metadata and deterministic terminals. No user chats or logins are used.
-import { chromium } from '@playwright/test';
+import { launchTestBrowser, realPageErrors, testPermissions } from '../../../scripts/lib/test-browser.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -37,7 +37,7 @@ async function start() {
 }
 try {
   await start();
-  browser = await chromium.launch({ headless: true, channel: process.env.MRMAK_TEST_BROWSER || 'msedge' });
+  browser = await launchTestBrowser();
   const page = await browser.newPage({ viewport: { width: 640, height: 800 } });
   page.setDefaultTimeout(6000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
@@ -69,7 +69,7 @@ try {
   assert.equal(service.sessions.list().every(s => s.status === 'running'), true);
   assert.equal(service.sessions.get(chats[0].id).pinned, true);
   assert.equal(launches.length, 7);
-  assert.deepEqual(errors, []);
+  assert.deepEqual(realPageErrors(errors), []);
   await page.screenshot({ path: path.join(repo, 'history-restored.png') });
   console.log('History UI passed: missing IDs recovered for two same-folder Codex chats and an OpenCode chat; OpenCode filter; close/reopen and service restart preserve original native IDs and pins.');
 } finally {

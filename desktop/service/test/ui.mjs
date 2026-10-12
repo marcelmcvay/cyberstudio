@@ -1,6 +1,6 @@
 // Run after npm run build. Isolated browser, repository and fake PTYs; no agent
 // login, live conversation, Windows shortcut or production setting is touched.
-import { chromium } from '@playwright/test';
+import { launchTestBrowser, realPageErrors, testPermissions, useTestClipboard } from '../../../scripts/lib/test-browser.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, cp } from 'node:fs/promises';
 import path from 'node:path';
@@ -33,8 +33,9 @@ for (const agent of ['codex', 'claude', 'opencode', 'kimi', 'shell']) {
 }
 let browser;
 try {
-  browser = await chromium.launch({ headless: true, channel: process.env.MRMAK_TEST_BROWSER || 'msedge' });
-  const context = await browser.newContext({ viewport: { width: 900, height: 800 }, permissions: ['clipboard-read', 'clipboard-write'] });
+  browser = await launchTestBrowser();
+  const context = await browser.newContext({ viewport: { width: 900, height: 800 }, permissions: testPermissions(['clipboard-read', 'clipboard-write']) });
+  await useTestClipboard(context);
   const page = await context.newPage(); page.setDefaultTimeout(10000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto(service.urls.workspace + '#/test/0');
@@ -45,11 +46,14 @@ try {
   await page.getByRole('tab').nth(0).click();
   try {
     await page.getByRole('status').filter({ hasText: 'Opening report' }).waitFor();
-    assert.equal(await page.locator('iframe.report-frame').evaluate(element => getComputedStyle(element).visibility), 'hidden');
-    assert.equal(await page.locator('.report-document').evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(16, 17, 21)');
+    // The frame fades in with opacity: under visibility:hidden WebKit never registers its scroll area.
+    assert.equal(await page.locator('iframe.report-frame').evaluate(element => getComputedStyle(element).opacity), '0');
+    assert.equal(await page.locator('.report-document').evaluate(element => getComputedStyle(element).backgroundColor), 'rgb(14, 12, 11)');
   } finally { releaseReport(); }
   await page.locator('.report-document[aria-busy=false]').waitFor();
-  assert.equal(await page.frameLocator('iframe.report-frame').locator('body').evaluate(element => getComputedStyle(element).scrollbarColor), 'rgb(81, 76, 89) rgb(17, 18, 23)');
+  // WebKit has no scrollbar-color; there, check the injected report chrome carries it.
+  const scrollbar = await page.frameLocator('iframe.report-frame').locator('body').evaluate(element => getComputedStyle(element).scrollbarColor ?? [...document.querySelectorAll('style')].some(style => style.textContent.includes('scrollbar-color:#514c59 #111217')));
+  if (typeof scrollbar === 'boolean') assert.ok(scrollbar, 'report chrome sets the scrollbar colors'); else assert.equal(scrollbar, 'rgb(81, 76, 89) rgb(17, 18, 23)');
   await page.unroute('**/workspace/test/step0.html*');
   await page.route('**/workspace/test/step1.html', route => route.request().method() === 'HEAD' ? route.fulfill({ status: 404 }) : route.continue());
   await page.getByRole('tab').nth(1).click();
@@ -122,13 +126,15 @@ try {
     await page.locator('.xterm-rows').filter({ hasText: 'Fixture line' }).waitFor();
     if (agent !== 'shell') {
       await screen.hover(); const before = await page.locator('.xterm-rows').innerText(); await page.mouse.wheel(0, -420);
-      await page.waitForFunction(previous => document.querySelector('.xterm-rows')?.textContent !== previous, before);
+      await page.waitForFunction(previous => document.querySelector('.xterm-rows')?.innerText !== previous, before);
       assert.notEqual(await page.locator('.xterm-rows').innerText(), before, 'Agent wheel scroll must move history even with mouse reporting enabled');
       await page.evaluate(() => navigator.clipboard.writeText('clipboard sentinel'));
       await page.locator('.xterm-helper-textarea').focus(); await page.keyboard.press('Control+c');
       assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'clipboard sentinel');
-      // Shift overrides terminal mouse tracking so a row can be selected.
-      await page.keyboard.down('Shift'); await screen.click({ position: { x: 120, y: 30 }, clickCount: 3 }); await page.keyboard.up('Shift');
+      // xterm's force-selection modifier overrides terminal mouse tracking so a row
+      // can be selected: Shift elsewhere, Option on macOS (macOptionClickForcesSelection).
+      const force = await page.evaluate(() => /Mac/.test(navigator.platform)) ? 'Alt' : 'Shift'
+      await page.keyboard.down(force); await screen.click({ position: { x: 120, y: 30 }, clickCount: 3 }); await page.keyboard.up(force);
       await page.keyboard.press('Control+c');
       assert.match(await page.evaluate(() => navigator.clipboard.readText()), /Fixture line/);
       assert.ok(writes.get(agent).every(data => !data.includes('\x03')), `${agent}: Ctrl+C must never reach PTY`);
@@ -138,7 +144,7 @@ try {
       assert.ok(writes.get(agent).includes('\x03'), 'The local shell retains Ctrl+C interrupt');
     }
   }
-  assert.deepEqual(errors, []);
+  assert.deepEqual(realPageErrors(errors), []);
   console.log('UI passed: 12 clickable wrapping tabs; Markdown preview/edit/save/conflict/draft; local Skills; MCP filtering, checks and hidden credentials; terminal bottom row visible across four window/font sizes; Codex/Claude/OpenCode/Kimi copy and scroll; PowerShell interrupt.');
 } finally {
   await browser?.close();

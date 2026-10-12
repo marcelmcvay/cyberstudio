@@ -1,5 +1,5 @@
 // No microphone, paid model request, native terminal or personal workspace is used.
-import { chromium } from '@playwright/test';
+import { launchTestBrowser, realPageErrors, testPermissions } from '../../../scripts/lib/test-browser.mjs';
 import assert from 'node:assert/strict';
 import { copyFile, cp, mkdtemp, mkdir, writeFile, readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -28,13 +28,17 @@ service.quick.ask = async () => null;
 const imageBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jvWQAAAAASUVORK5CYII=';
 let browser;
 try {
-  browser = await chromium.launch({ headless: true, channel: process.env.MRMAK_TEST_BROWSER || 'msedge' });
+  browser = await launchTestBrowser();
   const page = await browser.newPage({ viewport: { width: 650, height: 800 } });
   page.setDefaultTimeout(10000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => {
     window.fixtureMicRequests = 0;
-    Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: async () => { window.fixtureMicRequests++; throw new DOMException('Permission denied', 'NotAllowedError'); } });
+    const deny = async () => { window.fixtureMicRequests++; throw new DOMException('Permission denied', 'NotAllowedError'); };
+    // Patch the prototype: WebKit creates navigator.mediaDevices after init scripts
+    // run, so an instance property set here would never be seen.
+    if (window.MediaDevices) Object.defineProperty(MediaDevices.prototype, 'getUserMedia', { configurable: true, value: deny });
+    else Object.defineProperty(navigator, 'mediaDevices', { configurable: true, value: { getUserMedia: deny } });
   });
   for (const surface of ['chats', 'workspace']) {
     await page.goto(service.urls[surface]);
@@ -87,7 +91,7 @@ try {
     await attached.getByRole('button', { name: /^Remove / }).click();
     assert.equal(await attached.count(), 0);
   }
-  assert.deepEqual(errors, []);
+  assert.deepEqual(realPageErrors(errors), []);
   console.log('Talk to Cy: newline/send/IME, dismissable errors, image paste/upload/preview/removal, retry and hidden-panel draft retention passed in both windows.');
   console.log(`Screenshots: ${repo}`);
 } finally { await browser?.close(); await service.close(); }

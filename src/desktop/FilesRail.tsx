@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { DragEvent, KeyboardEvent } from 'react'
+import type { DragEvent, KeyboardEvent, MouseEvent } from 'react'
 import { addLink, api, desktopState, fileManager, isMac, reportError, setPreview, trashName, uploadFile, useDesktop, windowAction } from './client'
 import type { FileEntry, Folder, Preview } from './types'
 import { Icon } from './Icons'
@@ -9,6 +9,9 @@ import McpPanel from './McpPanel'
 import PropertiesPanel from './PropertiesPanel'
 import { ZoomImage } from '../components/ImagePreview'
 import ReportFrame from '../components/ReportFrame'
+
+// Help opens as a page; editing it is one deliberate click away.
+const isHelp = (path: string) => /(^|[\\/])workspace[\\/]_shared[\\/]help\.md$/i.test(path)
 
 export function FilePreview({ file }: { file: Preview }) {
   // Escape goes back to the Workspace, except while typing or when a lightbox owns it.
@@ -23,7 +26,7 @@ export function FilePreview({ file }: { file: Preview }) {
     return () => window.removeEventListener('keydown', close)
   }, [])
   return <div className="file-preview"><header><span><Icon name="files" size={16} /><strong title={file.name}>{file.name}</strong><small>{Math.max(1, Math.round(file.size / 1024)).toLocaleString()} KB</small></span><div><button className="desk-icon" onClick={() => api('/reveal', { path: file.path }).catch(reportError)} title={`Show in ${fileManager}`}><Icon name="external" size={17} /></button><button className="desk-icon" onClick={() => setPreview(null)} title="Back to Workspace" aria-label="Close file preview"><Icon name="close" size={18} /></button></div></header><div className={`file-preview-body ${file.kind}`}>
-    {file.kind === 'text' && (/\.md$/i.test(file.name) ? <MarkdownDocument key={`${file.path}:${file.revision}`} file={file} /> : <pre>{file.text}</pre>)}
+    {file.kind === 'text' && (/\.md$/i.test(file.name) ? <MarkdownDocument key={`${file.path}:${file.revision}`} file={file} readOnly={isHelp(file.path)} /> : <pre>{file.text}</pre>)}
     {file.kind === 'document' && file.url && <ReportFrame url={file.url} title={file.name} sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads" />}
     {file.kind === 'image' && <ZoomImage src={file.url} alt={file.name} />}
     {file.kind === 'video' && <video src={file.url} controls />}
@@ -42,6 +45,8 @@ type TreeControls = {
   expanded: Set<string>; selected: string; dropTarget: string; query: string; revision: number
   toggle: (path: string) => void
   preview: (entry: FileEntry) => void
+  trash: (path: string) => void
+  menu: (event: MouseEvent, entry: FileEntry) => void
   drag: (event: DragEvent, path: string, directory: boolean) => void
   dropProps: (path: string) => {
     onDragOver: (event: DragEvent) => void
@@ -70,17 +75,19 @@ function FolderBranch({ path, mode = 'all', depth = 1, ancestors = [], tree, onL
   return <div role="group" {...tree.dropProps(folder.path)}>{entries.map(entry => {
     const expanded = tree.expanded.has(pathKey(entry.path))
     return <div role="none" key={entry.path}>
-      <div role="none" className={`file-entry ${entry.directory ? 'has-reveal' : ''}`} {...(entry.directory ? tree.dropProps(entry.path) : {})}>
+      <div role="none" className={`file-entry has-trash ${entry.directory ? 'has-reveal' : ''}`} {...(entry.directory ? tree.dropProps(entry.path) : {})}>
       <button role="treeitem" data-path={entry.path} aria-level={depth + 1} aria-expanded={entry.directory ? expanded : undefined} aria-selected={pathKey(tree.selected) === pathKey(entry.path)}
         className={`file-row ${entry.directory ? 'directory' : ''} ${pathKey(tree.selected) === pathKey(entry.path) ? 'selected' : ''} ${tree.dropTarget === pathKey(entry.path) ? 'drop-target' : ''}`}
         style={{ paddingLeft: 8 + Math.min(depth, 10) * 14 }} title={entry.path}
         onClick={() => entry.directory ? tree.toggle(entry.path) : tree.preview(entry)}
+        onContextMenu={event => tree.menu(event, entry)}
         draggable onDragStart={event => tree.drag(event, entry.path, entry.directory)}
         {...tree.dropProps(entry.directory ? entry.path : folder.path)}>
         <Icon name="arrow" size={11} style={{ visibility: entry.directory ? 'visible' : 'hidden', transform: expanded ? 'rotate(90deg)' : undefined }} />
         <Icon name={entry.directory ? 'folder' : 'files'} size={15} /><span>{entry.name}</span>
         {!entry.directory && <small>{entry.size < 1024 * 1024 ? `${Math.max(1, Math.round(entry.size / 1024))}k` : `${(entry.size / (1024 * 1024)).toFixed(1)}m`}</small>}
       </button>
+      <button className="file-trash" title={`Move to ${trashName}`} aria-label={`Move ${entry.name} to ${trashName}`} onClick={event => { event.stopPropagation(); tree.trash(entry.path) }}><Icon name="trash" size={14} /></button>
       {entry.directory && <RevealFolder path={entry.path} name={entry.name} />}
       </div>
       {entry.directory && expanded && <FolderBranch path={entry.path} depth={depth + 1} ancestors={[...ancestors, pathKey(folder.path)]} tree={tree} />}
@@ -134,6 +141,22 @@ export default function FilesRail() {
   const copyLock = useRef(false)
   const internalDrag = useRef<{ path: string; directory: boolean; handled: boolean } | null>(null)
   const recycleLock = useRef(false)
+  // Undo toast after a move to the trash. The service holds the item in the
+  // project's .trash for a few seconds longer than the toast shows.
+  const [undo, setUndo] = useState<{ id: string; path: string; name: string } | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; entry: FileEntry } | null>(null)
+  useEffect(() => {
+    if (!undo) return
+    const timer = window.setTimeout(() => setUndo(current => current?.id === undo.id ? null : current), 10000)
+    return () => clearTimeout(timer)
+  }, [undo])
+  useEffect(() => {
+    if (!menu) return
+    const close = () => setMenu(null)
+    const key = (event: globalThis.KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); setMenu(null) } }
+    window.addEventListener('pointerdown', close); window.addEventListener('blur', close); window.addEventListener('resize', close); window.addEventListener('keydown', key)
+    return () => { window.removeEventListener('pointerdown', close); window.removeEventListener('blur', close); window.removeEventListener('resize', close); window.removeEventListener('keydown', key) }
+  }, [menu])
   const input = useRef<HTMLInputElement>(null)
   const refresh = useCallback(() => setRevision(value => value + 1), [])
   const loaded = useCallback((folder: Folder) => setRootFolder(folder), [])
@@ -158,6 +181,8 @@ export default function FilesRail() {
     }
     const recycled = (event: Event) => {
       const result = (event as CustomEvent<{ path: string; recycled: boolean; error?: string }>).detail
+      // A staged item reaching the OS trash after its undo window: nothing to show.
+      if (/[\\/]\.trash[\\/]/.test(result.path)) { if (result.error) setError(`Could not empty ${fileName(result.path)} to the ${trashName}. It is still in the project .trash folder.`); return }
       recycleLock.current = false
       if (result.error) { setError(result.error); setStatus(''); return }
       setStatus(`${fileName(result.path)} moved to the ${trashName}.`)
@@ -234,13 +259,45 @@ export default function FilesRail() {
     } catch (error) { setLinkNote({ error: true, text: message(error) }) }
     finally { setAdding(false) }
   }
+  const moveToTrash = (path: string) => {
+    if (recycleLock.current || copyLock.current) return
+    recycleLock.current = true; setError(''); setMenu(null); setStatus(`Moving ${fileName(path)} to the ${trashName}…`)
+    api<{ staged?: boolean; id?: string; path: string; name?: string }>('/files/recycle', { path }).then(result => {
+      if (!result.staged || !result.id) return // The native result event finishes this one.
+      recycleLock.current = false
+      setStatus(`${fileName(result.path)} moved to the ${trashName}.`)
+      setUndo({ id: result.id, path: result.path, name: fileName(result.path) })
+      const preview = desktopState().preview
+      if (preview && (pathKey(preview.path) === pathKey(result.path) || pathKey(preview.path).startsWith(pathKey(result.path) + '/'))) setPreview(null)
+      const parent = result.path.replace(/[\\/][^\\/]+$/, '')
+      setSelected(parent); setDestination(parent); refresh()
+    }).catch(error => { recycleLock.current = false; setError(message(error)); setStatus('') })
+  }
+  const restore = (item: { id: string; path: string; name: string }) => {
+    setUndo(null)
+    api<{ path: string }>('/files/restore', { id: item.id }).then(result => {
+      setError(''); setStatus(`${item.name} restored.`); setSelected(result.path); refresh()
+    }).catch(error => { setError(message(error)); setStatus('') })
+  }
+  const copyPath = (path: string) => {
+    setMenu(null)
+    const done = () => { setError(''); setStatus('Path copied.') }
+    const fallback = () => {
+      const area = document.createElement('textarea'); area.value = path; document.body.appendChild(area); area.select()
+      const ok = document.execCommand('copy'); area.remove()
+      if (ok) done(); else setError('Could not copy the path.')
+    }
+    if (navigator.clipboard) navigator.clipboard.writeText(path).then(done).catch(fallback)
+    else fallback()
+  }
   const deleteKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== 'Delete') { treeKeys(event); return }
+    // Forward Delete, or Cmd+Backspace (the Mac delete key) as in Finder.
+    const remove = event.key === 'Delete' || (event.key === 'Backspace' && (isMac ? event.metaKey : event.ctrlKey))
+    if (!remove) { treeKeys(event); return }
     event.preventDefault(); event.stopPropagation()
     const path = (event.target as HTMLElement).closest('[role="treeitem"]')?.getAttribute('data-path')
-    if (event.repeat || !path || recycleLock.current || copyLock.current) return
-    recycleLock.current = true; setError(''); setStatus(`Moving ${fileName(path)} to the ${trashName}…`)
-    api('/files/recycle', { path }).catch(error => { recycleLock.current = false; setError(message(error)); setStatus('') })
+    if (event.repeat || !path) return
+    moveToTrash(path)
   }
   const dropProps = (folder: string) => ({
     onDragOver: (event: DragEvent) => {
@@ -258,6 +315,11 @@ export default function FilesRail() {
   })
   const tree: TreeControls = {
     expanded, selected, dropTarget, query, revision, toggle, dropProps,
+    trash: moveToTrash,
+    menu: (event, entry) => {
+      event.preventDefault(); event.stopPropagation()
+      setMenu({ x: Math.min(event.clientX, window.innerWidth - 200), y: Math.min(event.clientY, window.innerHeight - 120), entry })
+    },
     preview: entry => { setSelected(entry.path); setDestination(entry.path.replace(/[\\/][^\\/]+$/, '')); api<Preview>(`/preview?path=${encodeURIComponent(entry.path)}`).then(setPreview).catch(reportError) },
     drag: (event, path, directory) => {
       // Hand the held mouse gesture to Windows OLE with real file paths.
@@ -290,9 +352,15 @@ export default function FilesRail() {
         <div role="none" className="file-entry has-reveal" {...dropProps(root)}><button role="treeitem" aria-level={1} aria-expanded="true" aria-selected={pathKey(selected) === pathKey(root)} className={`file-row file-root-row ${dropTarget === pathKey(root) ? 'drop-target' : ''}`} onClick={() => { setSelected(root); setDestination(root) }} {...dropProps(root)} title={root}><Icon name="arrow" size={11} style={{ transform: 'rotate(90deg)' }} /><Icon name="folder" size={15} /><span>{fileName(root)}</span></button><RevealFolder path={root} name={fileName(root)} /></div>
         <FolderBranch key={`${root}:${mode}`} path={root} mode={mode} tree={tree} onLoad={loaded} />
       </div>
-      <div className="file-transfer-status" aria-live="polite">{error && <p className="desk-error-inline">{error}</p>}{status && <p>{status}</p>}<small title={destination}>{copying ? 'Transferring files…' : `Drag to move · ${isMac ? 'Fn+Delete' : 'Delete'} to ${trashName}`}</small></div>
+      <div className="file-transfer-status" aria-live="polite">{error && <p className="desk-error-inline">{error}</p>}{status && <p>{status}</p>}<small title={destination}>{copying ? 'Transferring files…' : `Drag to move · ${isMac ? 'Cmd+Delete' : 'Delete'} to ${trashName} · right-click for more`}</small></div>
       <footer><button onClick={() => navigate(repo)}>Project root</button></footer>
     </div>}
-    <div className="files-rail">{(['files', 'properties', 'skills', 'mcp', 'settings'] as const).map(name => <button key={name} className={`rail-tool ${open && panel === name ? 'active' : ''}`} onClick={() => showPanel(name)} title={name === 'mcp' ? 'MCP' : name[0].toUpperCase() + name.slice(1)} aria-label={`Toggle ${name}`} aria-pressed={open && panel === name}><Icon name={name === 'files' ? 'folder' : name} size={18} /><span>{name === 'mcp' ? 'MCP' : name}</span></button>)}<button className="rail-tool" title="Workspace help" aria-label="Open Workspace help" onClick={() => api<Preview>('/preview?path=workspace%2F_shared%2Fhelp.md').then(setPreview).catch(reportError)}><Icon name="help" size={18} /><span>Help</span></button><div className="rail-spacer" /><button className="desk-icon" title="Show Chats" onClick={() => windowAction('chats')}><Icon name="chats" size={18} /></button></div>
+    {menu && <div className="file-menu" role="menu" aria-label={menu.entry.name} style={{ left: menu.x, top: menu.y }} onPointerDown={event => event.stopPropagation()}>
+      <button role="menuitem" autoFocus onClick={() => { setMenu(null); api('/reveal', { path: menu.entry.path }).catch(reportError) }}>Reveal in {fileManager}</button>
+      <button role="menuitem" onClick={() => moveToTrash(menu.entry.path)}>Move to {trashName}<kbd>{isMac ? '⌘⌫' : 'Del'}</kbd></button>
+      <button role="menuitem" onClick={() => copyPath(menu.entry.path)}>Copy path</button>
+    </div>}
+    {undo && <div className="file-undo" role="status"><span><strong title={undo.path}>{undo.name}</strong> moved to the {trashName}.</span><button onClick={() => restore(undo)}>Undo</button><button className="file-undo-close" onClick={() => setUndo(null)} aria-label="Dismiss" title="Dismiss">×</button></div>}
+    <div className="files-rail">{(['files', 'properties', 'skills', 'mcp', 'settings'] as const).map(name => <button key={name} className={`rail-tool ${open && panel === name ? 'active' : ''}`} onClick={() => showPanel(name)} title={name === 'mcp' ? 'MCP' : name[0].toUpperCase() + name.slice(1)} aria-label={`Toggle ${name}`} aria-pressed={open && panel === name}><Icon name={name === 'files' ? 'folder' : name} size={18} /><span>{name === 'mcp' ? 'MCP' : name}</span></button>)}<button className="rail-tool" title="Workspace help" aria-label="Open Workspace help" onClick={() => api<Preview>(`/preview?path=${encodeURIComponent(`${repo}/workspace/_shared/help.md`)}`).then(setPreview).catch(reportError)}><Icon name="help" size={18} /><span>Help</span></button><div className="rail-spacer" /><button className="desk-icon" title="Show Chats" onClick={() => windowAction('chats')}><Icon name="chats" size={18} /></button></div>
   </aside>
 }

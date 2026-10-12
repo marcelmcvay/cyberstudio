@@ -1,5 +1,5 @@
 // Real browser checks against an isolated local service, without restoring chats.
-import { chromium } from '@playwright/test';
+import { launchTestBrowser, realPageErrors } from './lib/test-browser.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -14,7 +14,7 @@ const { entities } = JSON.parse(await readFile(path.join(root, 'workspace/worksp
 const errors = [], checks = [];
 let browser;
 try {
-  browser = await chromium.launch({ channel: 'msedge', headless: true });
+  browser = await launchTestBrowser();
   const page = await browser.newPage({ acceptDownloads: true });
   page.setDefaultTimeout(20000);
   page.on('pageerror', error => errors.push(error.message));
@@ -109,7 +109,7 @@ try {
     // Invalid indices recover to the chosen default.
     await page.goto(service.urls.workspace + '#/creative-mcp/999');
     await frameLocator().locator('h1').waitFor();
-    assert.equal(await page.locator('.step-tab[aria-selected="true"]').innerText(), 'Tool shortlist');
+    assert.equal(await page.locator('.step-tab[aria-selected="true"]').textContent(), 'Tool shortlist');
   }
   await page.setViewportSize({ width: 1440, height: 1060 });
   await page.goto(service.urls.workspace + '#/my-dream-game');
@@ -131,7 +131,7 @@ try {
     await page.getByRole('button', { name: 'Close file preview' }).click();
     checks.push({ skillProvider: provider, completeInstructions: true });
   }
-  assert.deepEqual(errors, []);
+  assert.deepEqual(realPageErrors(errors), []);
   const focused = Boolean(process.env.MRMAK_QA_GAME_ONLY);
   await writeFile(path.join(root, `.cache/template-${focused ? 'game-' : ''}ui-result.json`), JSON.stringify({ passed: true, focused, checks, errors }, null, 2));
   console.log(`Template UI passed: ${checks.length} cases; ${focused ? 'game navigation, images, downloads, route defaults and both skill previews' : 'card defaults, explicit routes, game navigation, prompts, images, downloads, eight videos and both skill previews'}.`);

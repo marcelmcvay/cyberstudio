@@ -1054,6 +1054,49 @@ html[data-workspace-theme=light] .content { background-image: none; }
 .c3d-canvas { position: absolute; inset: 0; }
 .c3d-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
 
+/* First-use navigation hint (W-04). Sits top centre over the stage, never
+   blocks the canvas: only the close button takes the pointer. */
+.c3d-panes { position: relative; }
+.viewer-hint {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: fit-content;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 4px 12px;
+  max-width: calc(100% - 24px);
+  padding: 6px 8px 6px 14px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-1) 92%, transparent);
+  color: var(--text);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+.s3d .viewer-hint { top: 12px; bottom: auto; }
+.viewer-hint > span { white-space: nowrap; }
+.viewer-hint-keys { color: var(--text-dim); font-family: var(--font-mono); font-size: 0.6875rem; }
+.viewer-hint-close {
+  pointer-events: auto;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.viewer-hint-close:hover { color: var(--text-bright); background: var(--surface-2); }
+.viewer-hint-close:focus-visible { outline: 2px solid var(--pink); outline-offset: 1px; }
+
 .c3d-overlay {
   position: absolute;
   inset: 0;
@@ -1101,6 +1144,25 @@ html[data-workspace-theme=light] .content { background-image: none; }
 }
 .c3d-boot-error strong { color: var(--red); }
 .c3d-boot-error code { font-family: var(--font-mono); font-size: 0.7rem; }
+
+/* Narrow widths (W-23). The mode bar wraps instead of clipping, pane stats drop
+   under the title once the viewer column is under 1000 px, and a canvas never
+   gets shorter than 40vh: the card scrolls instead. */
+.c3d { overflow-y: auto; }
+.c3d-inner { container-type: inline-size; }
+.c3d-modes { flex-wrap: wrap; min-width: 0; max-width: 100%; }
+.c3d-tests { min-width: 0; max-width: 100%; }
+.c3d-panes { min-height: min-content; }
+.c3d-stage { min-height: 40vh; }
+.c3d-pane-name { flex-shrink: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c3d-pane-head { flex-wrap: wrap; row-gap: 2px; }
+.c3d-pane-sub { flex: 1 1 180px; min-width: min(180px, 100%); }
+@container (max-width: 1000px) {
+  .c3d-pane-stats { margin-left: 0; flex-basis: 100%; white-space: normal; }
+  .c3d-tools { margin-left: 0; }
+  .c3d-tests { flex: 1 1 220px; }
+  .c3d-select { min-width: 0; width: 100%; }
+}
 
 /* ─── 3D scene step (Scene3D) ──────────────────────────────────────────────
    One stage instead of panes; the comparison chrome is reused. The readout is

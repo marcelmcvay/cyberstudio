@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Scene3DManifest, Scene3DModel } from '../types'
 import { ModelViewer, type PlacedStats, type ShadingMode } from '../lib/three/viewer'
-import { ignoreViewerKey } from '../lib/viewerKeys'
+import { cameraFromKey, ignoreViewerKey, shadingFromKey, SHADING_MODES } from '../lib/viewerKeys'
+import ViewerHint from './ViewerHint'
 
 /**
  * Scene card: several GLBs placed in one three.js scene at real scale.
@@ -13,11 +14,6 @@ import { ignoreViewerKey } from '../lib/viewerKeys'
  * model. Same GLBs go to the other engines, so these are the three.js numbers.
  */
 
-const MODES: { id: ShadingMode; label: string; key: string }[] = [
-  { id: 'pbr', label: 'Textured', key: 't' },
-  { id: 'solid', label: 'Clay', key: 'c' },
-  { id: 'wire', label: 'Wireframe', key: 'w' },
-]
 
 type Row =
   | { state: 'loading' }
@@ -142,14 +138,15 @@ export default function Scene3D({ manifestUrl }: { manifestUrl: string }) {
     else viewerRef.current?.frame()
   }, [cameras.length, camIndex, goCamera])
 
-  // Number keys pick a camera, T/C/W pick shading, R resets, Space spins.
+  // Same map as compare3d: 1-8 shading, Shift+1..9 cameras, R reset, Space spin.
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
       if (ignoreViewerKey(ev)) return
-      const n = Number(ev.key)
-      const m = MODES.find(x => x.key === ev.key.toLowerCase())
-      if (n >= 1 && n <= cameras.length) goCamera(n - 1)
-      else if (m) setMode(m.id)
+      const cam = cameraFromKey(ev)
+      const shading = shadingFromKey(ev)
+      if (cam >= 0) {
+        if (cam < cameras.length) goCamera(cam)
+      } else if (shading) setMode(shading)
       else if (ev.key === 'r' || ev.key === 'R') reset()
       else if (ev.code === 'Space') {
         ev.preventDefault()
@@ -197,7 +194,7 @@ export default function Scene3D({ manifestUrl }: { manifestUrl: string }) {
                   className={`c3d-mode${camIndex === i ? ' active' : ''}`}
                   aria-pressed={camIndex === i}
                   onClick={() => goCamera(i)}
-                  title={`${c.label}  ·  ${i + 1}`}
+                  title={i < 9 ? `${c.label}  ·  Shift+${i + 1}` : c.label}
                 >
                   {c.label}
                 </button>
@@ -206,13 +203,13 @@ export default function Scene3D({ manifestUrl }: { manifestUrl: string }) {
           )}
 
           <div className="c3d-modes" role="group" aria-label="Shading mode">
-            {MODES.map(m => (
+            {SHADING_MODES.map((m, i) => (
               <button
                 key={m.id}
                 className={`c3d-mode${mode === m.id ? ' active' : ''}`}
                 aria-pressed={mode === m.id}
                 onClick={() => setMode(m.id)}
-                title={`${m.label}  ·  ${m.key.toUpperCase()}`}
+                title={`${m.hint}  ·  ${i + 1}`}
               >
                 {m.label}
               </button>
@@ -234,6 +231,7 @@ export default function Scene3D({ manifestUrl }: { manifestUrl: string }) {
             <div className="c3d-stage">
               <div className="c3d-grid" aria-hidden />
               <div className="c3d-canvas" ref={hostRef} />
+              <ViewerHint keys={cameras.length ? '1-8 shading · Shift+1-9 cameras · Space spin' : '1-8 shading · Space spin'} />
               {loading && ready.length === 0 && (
                 <div className="c3d-overlay">
                   <div className="c3d-spinner" />

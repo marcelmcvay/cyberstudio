@@ -52,8 +52,28 @@ for (const name of skillNames) {
   assert.equal(entry, skill, 'Claude must receive the full maintained skill.');
   assert.doesNotMatch(skill, /[A-Z]:[\\/]Users[\\/]/i, 'Shared skills must not contain a local account path.');
 }
-assert.deepEqual(JSON.parse(await read('.mcp.json')), { mcpServers: {} });
-assert.doesNotMatch(await read('.env.example'), /^\w+=(?!\s*$)\S+/m, 'The example env must contain no assigned values.');
+// The kit ships its own local Blender connections and nothing else: local stdio
+// commands with a pinned package, localhost only, no URLs, headers or secrets.
+const KIT_MCP = ['blender', 'blender-strix'];
+const { mcpServers = {} } = JSON.parse(await read('.mcp.json'));
+for (const [name, server] of Object.entries(mcpServers)) {
+  assert.ok(KIT_MCP.includes(name), `.mcp.json: ${name} is not a kit connection. Keep personal servers in user settings.`);
+  assert.ok(['uvx', 'bash'].includes(server.command), `.mcp.json: ${name} must be a local command`);
+  assert.equal(server.url, undefined, `.mcp.json: ${name} must not point at a remote URL`);
+  assert.equal(server.headers, undefined, `.mcp.json: ${name} must not carry headers`);
+  const text = JSON.stringify(server);
+  assert.match(text, /mcp-for-blender@\d+\.\d+\.\d+/, `.mcp.json: ${name} must pin its package version`);
+  assert.doesNotMatch(text, /[\\/](?:Users|home)[\\/]\w|[A-Z]:\\/, `.mcp.json: ${name} must not contain a local account path`);
+  for (const [key, value] of Object.entries(server.env || {})) {
+    assert.doesNotMatch(key, /KEY|TOKEN|SECRET|PASSWORD/i, `.mcp.json: ${name} must not set ${key}`);
+    if (key.endsWith('_HOST')) assert.equal(value, 'localhost', `.mcp.json: ${name} must stay on localhost`);
+  }
+}
+// Plain settings may carry defaults (cap, local Blender port); credentials stay blank.
+for (const [, key, value] of (await read('.env.example')).matchAll(/^(\w+)=(.*)$/gm)) {
+  if (/KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|AUTH/i.test(key)) assert.equal(value.trim(), '', `.env.example: ${key} must be blank`);
+  else assert.doesNotMatch(value, /[\\/](?:Users|home)[\\/]\w|https?:\/\/(?!localhost|127\.0\.0\.1)/, `.env.example: ${key} must not hold a personal path or remote URL`);
+}
 assert.match(await read('src/desktop/client.ts'), /defaultBypass: false/);
 assert.match(await read('desktop/service/server.mjs'), /defaultBypass: false/);
 assert.match(await read('desktop/service/sessions.mjs'), /bypass: options\.bypass === true/);
@@ -61,4 +81,4 @@ assert.match(await read('desktop/service/sessions.mjs'), /pinned = false, bypass
 const readme = await read('README.md');
 assert.match(readme, /Mr\. Mak is small\.\s+<img src="docs\/assets\/mr-mak\.png"[^>]+>\s*$/);
 await stat(path.join(root, 'docs/assets/mr-mak.png'));
-console.log(`Template passed: four cards, one pin, ${images.size} images, ${videos.size} videos, ${skillNames.length} shared skills, empty connections and account placeholders.`);
+console.log(`Template passed: four cards, one pin, ${images.size} images, ${videos.size} videos, ${skillNames.length} shared skills, ${Object.keys(mcpServers).length} local kit connections and account placeholders.`);

@@ -21,12 +21,14 @@ export function MarkdownView({ text, baseUrl }: { text: string; baseUrl?: string
   }}>{text}</Markdown></article>
 }
 
-export default function MarkdownDocument({ file }: { file: Preview }) {
+/** `readOnly` opens a reference document (Help) as a page: one Edit button, no save controls until asked. */
+export default function MarkdownDocument({ file, readOnly = false }: { file: Preview; readOnly?: boolean }) {
   const draftKey = `mrmak.md-draft.${file.path}`
   const [saved, setSaved] = useState(file.text || '')
   const [draft, setDraft] = useState(() => restoreDraft(draftKey, file.text || ''))
   const [revision, setRevision] = useState(file.revision)
   const [editing, setEditing] = useState(false)
+  const [locked, setLocked] = useState(readOnly)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState('')
   const dirty = draft !== saved
@@ -46,6 +48,12 @@ export default function MarkdownDocument({ file }: { file: Preview }) {
     } catch (error) { setStatus(error instanceof Error ? error.message : String(error)) }
     finally { setBusy(false) }
   }
+  if (locked && !dirty) return <section className="markdown-document read-only">
+    <div className="document-toolbar"><span className="document-status" role="status">Read only</span>
+      <button onClick={() => { setLocked(false); setEditing(true) }} title="Edit this file">Edit</button>
+    </div>
+    <div className="markdown-reader"><MarkdownView text={draft} baseUrl={file.url} /></div>
+  </section>
   return <section className="markdown-document">
     <div className="document-toolbar"><div className="document-modes" aria-label="Markdown mode"><button aria-pressed={!editing} onClick={() => setEditing(false)}>Preview</button><button aria-pressed={editing} onClick={() => setEditing(true)}>Edit</button></div>
       <span className="document-status" role="status">{status || (dirty ? 'Unsaved draft' : 'Markdown')}</span>

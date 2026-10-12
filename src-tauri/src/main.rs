@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{fs, io::{BufRead, BufReader, Write}, path::PathBuf, process::{Child, Command, Stdio}, sync::Mutex};
+use std::{fs, io::{BufRead, BufReader, Write}, path::PathBuf, process::{Child, Command, Stdio}, sync::{Mutex, atomic::{AtomicBool, Ordering}}, time::Duration};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem}, tray::{TrayIconBuilder, TrayIconEvent, MouseButton, MouseButtonState}};
 use tauri_plugin_window_state::StateFlags;
 mod external_links;
@@ -10,6 +10,9 @@ use std::os::windows::process::CommandExt;
 use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
 
 struct Service(Mutex<Option<Child>>);
+// Quit asks the service which chats would stop mid-work, then confirms (C-07).
+// `confirmed` lets the final exit through; `pending` holds the open request.
+struct QuitState { confirmed: AtomicBool, pending: Mutex<Option<String>> }
 #[cfg(windows)]
 struct ServiceJob(Mutex<Option<OwnedHandle>>);
 #[cfg(windows)]
@@ -43,6 +46,160 @@ fn reveal(app: &tauri::AppHandle, label: &str) {
     if let Some(window) = app.get_webview_window(label) {
         let _ = window.show(); let _ = window.unminimize(); let _ = window.set_focus();
     }
+}
+
+fn send_service(app: &tauri::AppHandle, value: &serde_json::Value) -> bool {
+    let Some(state) = app.try_state::<Service>() else { return false };
+    let mut guard = state.0.lock().unwrap();
+    let Some(child) = guard.as_mut() else { return false };
+    if child.try_wait().ok().flatten().is_some() { return false; }
+    child.stdin.as_mut().is_some_and(|stdin| writeln!(stdin, "{value}").and_then(|_| stdin.flush()).is_ok())
+}
+
+fn finish_quit(app: &tauri::AppHandle) {
+    app.state::<QuitState>().confirmed.store(true, Ordering::SeqCst);
+    app.exit(0);
+}
+
+// Menu Quit (Cmd+Q) and the tray's Quit: ask the service for busy chats first.
+// No answer within three seconds (a stuck service) quits as before.
+fn request_quit(app: &tauri::AppHandle) {
+    let quit = app.state::<QuitState>();
+    if quit.confirmed.load(Ordering::SeqCst) { app.exit(0); return; }
+    let request_id = format!("quit-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0));
+    {
+        let mut pending = quit.pending.lock().unwrap();
+        if pending.is_some() { return; }
+        *pending = Some(request_id.clone());
+    }
+    if !send_service(app, &serde_json::json!({ "type": "quit-check", "requestId": request_id })) {
+        *quit.pending.lock().unwrap() = None;
+        finish_quit(app); return;
+    }
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_secs(3));
+        let state = handle.state::<QuitState>();
+        let expired = { let mut pending = state.pending.lock().unwrap(); if pending.as_deref() == Some(request_id.as_str()) { *pending = None; true } else { false } };
+        if expired { let inner = handle.clone(); let _ = handle.run_on_main_thread(move || finish_quit(&inner)); }
+    });
+}
+
+fn busy_line(chat: &serde_json::Value) -> String {
+    let name = chat["name"].as_str().unwrap_or("A chat");
+    let doing = match chat["reason"].as_str().unwrap_or("") {
+        "waiting" => "waiting for your answer".to_owned(),
+        "process" => format!("running {}", chat["command"].as_str().unwrap_or("a command")),
+        _ => "working".to_owned(),
+    };
+    format!("• {name}: {doing}")
+}
+
+// The service's answer: quit at once, or a native confirm that lists the chats.
+fn answer_quit(app: &tauri::AppHandle, event: &serde_json::Value) {
+    let quit = app.state::<QuitState>();
+    {
+        let mut pending = quit.pending.lock().unwrap();
+        if pending.is_none() || pending.as_deref() != event["requestId"].as_str() { return; }
+        *pending = Some("dialog".into());
+    }
+    let chats: Vec<serde_json::Value> = event["chats"].as_array().cloned().unwrap_or_default();
+    if chats.is_empty() {
+        *quit.pending.lock().unwrap() = None;
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || finish_quit(&handle));
+        return;
+    }
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        let count = chats.len();
+        let lines = chats.iter().take(12).map(busy_line).collect::<Vec<_>>().join("\n");
+        let more = if count > 12 { format!("\n…and {} more", count - 12) } else { String::new() };
+        let description = format!("{} still {}. Quitting stops {}:\n\n{lines}{more}", if count == 1 { "One chat is".to_owned() } else { format!("{count} chats are") }, "working", if count == 1 { "it" } else { "them" });
+        let choice = rfd::MessageDialog::new().set_level(rfd::MessageLevel::Warning).set_title("Quit CyberStudio?").set_description(description)
+            .set_buttons(rfd::MessageButtons::OkCancelCustom("Quit anyway".into(), "Cancel".into())).show();
+        let quit_anyway = matches!(&choice, rfd::MessageDialogResult::Ok) || matches!(&choice, rfd::MessageDialogResult::Custom(label) if label == "Quit anyway");
+        *handle.state::<QuitState>().pending.lock().unwrap() = None;
+        if quit_anyway { let inner = handle.clone(); let _ = handle.run_on_main_thread(move || finish_quit(&inner)); }
+    });
+}
+
+// The macOS app menu forwards an item to the focused window as a 'mrmak-menu'
+// event. Chats handles tab and chat actions; Workspace handles Help and Settings.
+#[cfg(target_os = "macos")]
+fn focused_window(app: &tauri::AppHandle) -> Option<&'static str> {
+    ["chats", "workspace"].into_iter().find(|label| app.get_webview_window(label).is_some_and(|window| window.is_focused().unwrap_or(false)))
+}
+
+#[cfg(target_os = "macos")]
+fn dispatch_menu(app: &tauri::AppHandle, label: &str, action: &str) {
+    if let Some(window) = app.get_webview_window(label) {
+        let detail = serde_json::json!({ "action": action });
+        let _ = window.eval(format!("window.dispatchEvent(new CustomEvent('mrmak-menu',{{detail:{detail}}}))"));
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn app_menu_event(app: &tauri::AppHandle, id: &str) {
+    let focused = focused_window(app);
+    let hide = |label: &str| { if let Some(window) = app.get_webview_window(label) { let _ = window.hide(); } };
+    match id {
+        "menu-quit" => request_quit(app),
+        "menu-show-chats" => reveal(app, "chats"),
+        "menu-show-workspace" => reveal(app, "workspace"),
+        "menu-close-window" => { if let Some(label) = focused { hide(label); } },
+        // Cmd+W closes the current chat tab. In Workspace it hides the window, as before.
+        "menu-close-tab" => match focused { Some("workspace") => hide("workspace"), Some("chats") => dispatch_menu(app, "chats", "close-tab"), _ => {} },
+        "menu-new-chat" | "menu-history" | "menu-find-chat" => {
+            if focused != Some("chats") { reveal(app, "chats"); }
+            dispatch_menu(app, "chats", &id["menu-".len()..]);
+        },
+        "menu-clear-terminal" | "menu-prev-tab" | "menu-next-tab" => { if focused == Some("chats") { dispatch_menu(app, "chats", &id["menu-".len()..]); } },
+        "menu-settings" | "menu-help" => { reveal(app, "workspace"); dispatch_menu(app, "workspace", &id["menu-".len()..]); },
+        _ => {}
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn build_app_menu(app: &tauri::App) -> tauri::Result<Menu<tauri::Wry>> {
+    use tauri::menu::Submenu;
+    let item = |id: &str, text: &str, accelerator: Option<&str>| MenuItem::with_id(app, id, text, true, accelerator);
+    let separator = || PredefinedMenuItem::separator(app);
+    let name = app.config().product_name.clone().unwrap_or_else(|| "CyberStudio".into());
+    let app_menu = Submenu::with_items(app, &name, true, &[
+        &PredefinedMenuItem::about(app, Some(&format!("About {name}")), None)?, &separator()?,
+        &item("menu-settings", "Settings…", Some("CmdOrCtrl+,"))?, &separator()?,
+        &PredefinedMenuItem::services(app, None)?, &separator()?,
+        &PredefinedMenuItem::hide(app, None)?, &PredefinedMenuItem::hide_others(app, None)?, &PredefinedMenuItem::show_all(app, None)?, &separator()?,
+        &item("menu-quit", &format!("Quit {name}"), Some("CmdOrCtrl+Q"))?,
+    ])?;
+    let file_menu = Submenu::with_items(app, "File", true, &[
+        &item("menu-new-chat", "New Chat", Some("CmdOrCtrl+T"))?, &separator()?,
+        &item("menu-close-tab", "Close Tab", Some("CmdOrCtrl+W"))?,
+        &item("menu-close-window", "Close Window", Some("CmdOrCtrl+Shift+W"))?,
+    ])?;
+    // Standard items keep Cmd+C, Cmd+V, Cmd+Z and Cmd+A working in every text field.
+    let edit_menu = Submenu::with_items(app, "Edit", true, &[
+        &PredefinedMenuItem::undo(app, None)?, &PredefinedMenuItem::redo(app, None)?, &separator()?,
+        &PredefinedMenuItem::cut(app, None)?, &PredefinedMenuItem::copy(app, None)?, &PredefinedMenuItem::paste(app, None)?, &PredefinedMenuItem::select_all(app, None)?,
+    ])?;
+    let view_menu = Submenu::with_items(app, "View", true, &[
+        &item("menu-history", "History", Some("CmdOrCtrl+Shift+H"))?,
+        &item("menu-find-chat", "Find a Chat", Some("CmdOrCtrl+P"))?, &separator()?,
+        &item("menu-clear-terminal", "Clear Terminal", Some("CmdOrCtrl+K"))?,
+    ])?;
+    let window_menu = Submenu::with_items(app, "Window", true, &[
+        &PredefinedMenuItem::minimize(app, None)?, &PredefinedMenuItem::maximize(app, Some("Zoom"))?, &separator()?,
+        &item("menu-prev-tab", "Show Previous Tab", Some("CmdOrCtrl+Shift+["))?,
+        &item("menu-next-tab", "Show Next Tab", Some("CmdOrCtrl+Shift+]"))?, &separator()?,
+        &item("menu-show-chats", "Chats", None)?, &item("menu-show-workspace", "Workspace", None)?, &separator()?,
+        &PredefinedMenuItem::bring_all_to_front(app, None)?,
+    ])?;
+    let help_menu = Submenu::with_items(app, "Help", true, &[&item("menu-help", &format!("{name} Help"), None)?])?;
+    let menu = Menu::with_items(app, &[&app_menu, &file_menu, &edit_menu, &view_menu, &window_menu, &help_menu])?;
+    window_menu.set_as_windows_menu_for_nsapp()?;
+    help_menu.set_as_help_menu_for_nsapp()?;
+    Ok(menu)
 }
 
 fn requested_window(args: &[String]) -> Option<&str> {
@@ -211,6 +368,7 @@ fn main() {
         }))
         .plugin(tauri_plugin_window_state::Builder::default().with_state_flags(StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED).build())
         .manage(Service(Mutex::new(None)))
+        .manage(QuitState { confirmed: AtomicBool::new(false), pending: Mutex::new(None) })
         .setup(|app| {
             if std::env::args().any(|arg| arg == "--quit") { app.handle().exit(0); return Ok(()); }
             #[cfg(windows)]
@@ -313,6 +471,19 @@ fn main() {
                                 });
                             }
                         },
+                        "pick-folder" => {
+                            if let (Some(window), Some(request_id)) = (app_handle.get_webview_window("chats"), event["requestId"].as_str()) {
+                                let request_id = request_id.to_owned();
+                                let start = event["directory"].as_str().map(PathBuf::from).filter(|folder| folder.is_dir());
+                                std::thread::spawn(move || {
+                                    let mut dialog = rfd::FileDialog::new().set_parent(&window).set_title("Choose a working folder");
+                                    if let Some(folder) = start { dialog = dialog.set_directory(folder); }
+                                    let detail = serde_json::json!({ "requestId": request_id, "path": dialog.pick_folder() });
+                                    let _ = window.eval(format!("window.dispatchEvent(new CustomEvent('mrmak-picked-folder',{{detail:{detail}}}))"));
+                                });
+                            }
+                        },
+                        "quit-check" => answer_quit(&app_handle, &event),
                         "reveal" => { if let Some(file) = event["path"].as_str() { let _ = external_links::reveal_path(file); } },
                         _ => {}
                     }
@@ -340,11 +511,16 @@ fn main() {
                 app.manage(item);
                 publish_shortcut(app.handle(), None, if available { None } else { Some("Windows could not register the shortcut.".into()) });
             }
+            #[cfg(target_os = "macos")]
+            {
+                app.set_menu(build_app_menu(app)?)?;
+                app.on_menu_event(|app, event| app_menu_event(app, event.id.as_ref()));
+            }
             TrayIconBuilder::new().icon(app.default_window_icon().unwrap().clone()).tooltip("CyberStudio — your agents, close at hand")
                 .menu(&menu).show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "workspace" => reveal(app, "workspace"), "chats" => reveal(app, "chats"),
-                    "both" => { reveal(app, "workspace"); reveal(app, "chats"); }, "quit" => app.exit(0),
+                    "both" => { reveal(app, "workspace"); reveal(app, "chats"); }, "quit" => request_quit(app),
                     #[cfg(windows)]
                     "win-key" => {
                         if let Some(item) = app.try_state::<CheckMenuItem<tauri::Wry>>() {

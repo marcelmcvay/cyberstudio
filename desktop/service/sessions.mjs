@@ -1,6 +1,8 @@
 import { EventEmitter } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import { mkdir, stat } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import os from 'node:os';
 import path from 'node:path';
 import pty from 'node-pty';
@@ -18,9 +20,10 @@ import { ptyOptions } from './platform.mjs';
 import { opencodeVersion, opencodeEnvironment, readOpencodeState, watchOpencode } from './opencode.mjs';
 
 const { Terminal } = headless;
+const execFileAsync = promisify(execFile);
 const publicSession = session => {
-  const { id, name, agent, cwd, bypass, effort, status, createdAt, lastOutputAt, lastInputAt, exitCode, nativeId, attention, activity, unread, completionVersion, lastCompletedId, cols, rows, open, pinned, tabOrder, tabColor, updatedAt, preview, hasConversation, restoreError, connecting, waitingText, remoteCwd, remoteFallback, exitDetail } = session;
-  return { id, name, agent, cwd, bypass, effort, status, createdAt, lastOutputAt, lastInputAt, exitCode, nativeId, attention, activity, unread, completionVersion, lastCompletedId, cols, rows, open, pinned, tabOrder, tabColor, updatedAt, preview, hasConversation, restoreError, connecting, waitingText, remoteCwd, remoteFallback, exitDetail };
+  const { id, name, agent, cwd, bypass, effort, status, createdAt, lastOutputAt, lastInputAt, exitCode, nativeId, attention, activity, unread, completionVersion, lastCompletedId, cols, rows, open, pinned, tabOrder, tabColor, updatedAt, preview, hasConversation, restoreError, conversationMissing, connecting, waitingText, remoteCwd, remoteFallback, exitDetail } = session;
+  return { id, name, agent, cwd, bypass, effort, status, createdAt, lastOutputAt, lastInputAt, exitCode, nativeId, attention, activity, unread, completionVersion, lastCompletedId, cols, rows, open, pinned, tabOrder, tabColor, updatedAt, preview, hasConversation, restoreError, conversationMissing: !!conversationMissing, connecting, waitingText, remoteCwd, remoteFallback, exitDetail };
 };
 
 // Resolve a typed working folder: expand a leading ~ and explain a missing path.
@@ -38,6 +41,12 @@ export async function workingFolder(input, base, home = os.homedir()) {
 
 // Chats that need the person: blocked on input, or holding an unread result.
 export const needsYou = session => session.open && ((session.status === 'running' && session.activity === 'waiting') || session.unread);
+
+// The native conversation is gone (moved folder, deleted transcript). The tab
+// opens read-only with its saved screen and offers a fresh start or a pick (C-18).
+export const CONVERSATION_MISSING = 'conversation-missing';
+const missingConversation = session => Object.assign(new Error(`The ${session.agent === 'codex' ? 'Codex' : session.agent === 'opencode' ? 'OpenCode' : session.agent === 'kimi' ? 'Kimi' : 'Claude'} conversation for "${session.name}" could not be found. Its last screen is kept read-only.`), { code: CONVERSATION_MISSING, status: 409 });
+const processName = value => path.basename(String(value || '')).replace(/^-/, '');
 
 export class Sessions extends EventEmitter {
   constructor(repo, stateDir) {
@@ -160,6 +169,7 @@ export class Sessions extends EventEmitter {
     if (session.agent === 'codex') env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE = `mrmak_chat_${session.id}`;
     const proc = pty.spawn(command.file, command.args, ptyOptions({ cwd: session.cwd, env, cols: session.cols, rows: session.rows }));
     session.process = proc;
+    session.processFile = command.file;
     session.deviceReplies?.dispose();
     // Inactive tabs still have a terminal: answer device queries without needing
     // a visible renderer. The UI suppresses its duplicate protocol replies.
@@ -167,6 +177,7 @@ export class Sessions extends EventEmitter {
     session.status = 'running';
     session.activity = 'idle';
     session.restoreError = null;
+    session.conversationMissing = false;
     session.exitCode = null;
     session.startedAt = Date.now();
     Object.assign(session, { hooks: false, waitingSource: null, waitingKind: null, waitingText: null, userStopped: false, exitDetail: null, oscCarry: '', connecting: session.agent === 'strix', remoteCwd: null, remoteFallback: false });
@@ -494,6 +505,40 @@ export class Sessions extends EventEmitter {
     if (!session.unread || completionVersion !== session.completionVersion) return;
     session.unread = false; session.attention = false; this.changed(session);
   }
+  // A command running in the foreground of a local shell, e.g. "sleep" or "npm".
+  // The terminal's foreground process group differs from the shell's own while a
+  // command runs (ps tpgid); node-pty names that process. Windows reports neither,
+  // so nothing is detected there.
+  async foreground(id) {
+    const session = this.get(id);
+    const proc = session.process;
+    if (!proc || session.agent !== 'shell' || process.platform === 'win32') return null;
+    let name = '';
+    try { name = processName(proc.process); } catch { /* No foreground name available. */ }
+    try {
+      const { stdout } = await execFileAsync('ps', ['-o', 'tpgid=', '-p', String(proc.pid)], { timeout: 2000 });
+      const group = Number(stdout.trim());
+      if (Number.isInteger(group) && group > 0) return group === proc.pid ? null : name || 'A command';
+    } catch { /* ps unavailable: compare names below. */ }
+    return name && name !== processName(session.processFile) ? name : null;
+  }
+  // Why closing this chat (or quitting) would stop running work, or null (C-05, C-07).
+  async busy(id) {
+    const session = this.get(id);
+    if (!session.process || !session.open) return null;
+    if (session.activity === 'working' || session.activity === 'waiting') return { id, name: session.name, agent: session.agent, reason: session.activity };
+    const command = await this.foreground(id);
+    return command ? { id, name: session.name, agent: session.agent, reason: 'process', command } : null;
+  }
+  async busyChats() { return (await Promise.all(this.active().map(item => this.busy(item.id)))).filter(Boolean); }
+  // Applies the next time the CLI starts (restart or resume); a running CLI keeps its effort.
+  setEffort(id, effort) {
+    const session = this.get(id);
+    if (!['codex', 'claude', 'strix'].includes(session.agent)) throw new Error('This agent has no reasoning effort setting.');
+    if (!workerEfforts.includes(effort)) throw new Error('Reasoning effort must be medium, high, xhigh or max.');
+    session.effort = effort; this.changed(session);
+    return publicSession(session);
+  }
   async nativeBoundary(session, resumeId) {
     const file = !resumeId ? null : session.agent === 'codex' ? await codexTranscript(resumeId) : session.agent === 'claude' ? await claudeTranscript(session.cwd, resumeId) : null;
     return file ? { file, offset: (await stat(file).catch(() => null))?.size || 0 } : null;
@@ -510,30 +555,42 @@ export class Sessions extends EventEmitter {
     setTimeout(() => { try { if (session.process === proc) proc.write('\x03'); } catch { /* Process already exited. */ } }, 500).unref();
     setTimeout(() => { try { if (session.process === proc) proc.kill(); } catch { /* Process already exited. */ } }, 3500).unref();
   }
-  async resume(id, nativeId) {
-    try { return await this.resumeTerminal(id, nativeId); }
+  async resume(id, nativeId, { fresh = false, fromHistory = false } = {}) {
+    try { return await this.resumeTerminal(id, nativeId, fresh); }
     catch (error) {
       // An open tab shows why its terminal did not start, instead of a pending state.
+      // A reopen from History opens the tab the same way, with its saved screen (C-01, C-18).
       const session = this.items.get(id);
-      if (session?.open && !session.process && !this.closed) { session.restoreError = error.message; session.status = 'stopped'; this.changed(session); }
+      if (session && fromHistory && !session.open && !session.process && !this.closed && this.active().length < 80) { session.open = true; session.updatedAt = new Date().toISOString(); }
+      if (session?.open && !session.process && !this.closed) {
+        session.restoreError = error.message; session.conversationMissing = error.code === CONVERSATION_MISSING; session.status = 'stopped'; this.changed(session);
+        this.persist().catch(() => {});
+      }
       throw error;
     }
   }
-  async resumeTerminal(id, nativeId) {
+  async resumeTerminal(id, nativeId, fresh = false) {
     if (this.closed) throw new Error('CyberStudio is shutting down');
     const session = this.get(id);
     if (session.stopping) await session.stopping;
     if (session.process) return publicSession(session);
     if (!session.open && this.active().length >= 80) throw new Error('Close a tab before opening another.');
     await this.hydrate(session);
-    if (!nativeId) await this.recoverNative(session);
-    let resumeId = nativeId || session.nativeId;
+    if (fresh) {
+      // "Start a new conversation here": same tab, folder and screen; a new native conversation.
+      session.nativeId = ['claude', 'strix'].includes(session.agent) ? randomUUID() : null;
+      session.hasConversation = false; session.preview = '';
+      nativeId = undefined;
+    } else if (!nativeId) await this.recoverNative(session);
+    let resumeId = fresh ? null : nativeId || session.nativeId;
     // A terminal closed before its first prompt may have no native conversation yet.
     // Nothing to resume (for example, closed at the trust prompt): start fresh under the same ID.
-    if (session.agent === 'claude' && resumeId && !nativeId && !(await stat(await claudeTranscript(session.cwd, resumeId)).catch(() => null))) { resumeId = null; session.hasConversation = false; }
-    if (session.agent !== 'shell' && !resumeId && session.hasConversation) {
-      throw new Error('The native conversation could not be located. Your last screen is retained; use New chat → Resume to connect its CLI ID.');
+    // A chat that finished a turn did have one: say it is missing instead (C-18).
+    if (session.agent === 'claude' && resumeId && !nativeId && !(await stat(await claudeTranscript(session.cwd, resumeId)).catch(() => null))) {
+      if (session.completionVersion > 0 || session.preview) throw missingConversation(session);
+      resumeId = null; session.hasConversation = false;
     }
+    if (session.agent !== 'shell' && !resumeId && session.hasConversation) throw missingConversation(session);
     if (resumeId) session.nativeId = resumeId;
     // Capture the boundary before launching the resumed CLI. Even an immediate
     // submitted task must be observed, while historic answers stay acknowledged.

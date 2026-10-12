@@ -95,12 +95,12 @@ try {
   await page.getByRole('button', { name: 'Close MCP', exact: true }).click();
   await page.goto(service.urls.chats);
   async function setTerminalFontSize(size) {
-    await page.getByTitle('Chat options', { exact: true }).click();
+    await page.getByRole('button', { name: 'Chat options', exact: true }).click();
     const control = page.locator('.font-control');
     const current = Number(await control.locator('span').last().innerText());
     const button = control.getByRole('button', { name: size > current ? '+' : '−', exact: true });
     for (let count = 0; count < Math.abs(size - current); count++) await button.click();
-    await page.getByTitle('Chat options', { exact: true }).click();
+    await page.getByRole('button', { name: 'Chat options', exact: true }).click();
   }
   // Check the actual terminal rows, not just the host box: FitAddon can size
   // a grid into parent padding and silently clip the CLI's bottom status row.
@@ -128,16 +128,24 @@ try {
       await screen.hover(); const before = await page.locator('.xterm-rows').innerText(); await page.mouse.wheel(0, -420);
       await page.waitForFunction(previous => document.querySelector('.xterm-rows')?.innerText !== previous, before);
       assert.notEqual(await page.locator('.xterm-rows').innerText(), before, 'Agent wheel scroll must move history even with mouse reporting enabled');
+      const mac = await page.evaluate(() => /Mac/.test(navigator.platform));
+      // macOS copies with Cmd+C and sends Ctrl+C to the CLI (C-10); elsewhere Ctrl+C copies only.
+      const copyKey = mac ? 'Meta+c' : 'Control+c';
       await page.evaluate(() => navigator.clipboard.writeText('clipboard sentinel'));
-      await page.locator('.xterm-helper-textarea').focus(); await page.keyboard.press('Control+c');
+      await page.locator('.xterm-helper-textarea').focus(); await page.keyboard.press(copyKey);
       assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'clipboard sentinel');
       // xterm's force-selection modifier overrides terminal mouse tracking so a row
       // can be selected: Shift elsewhere, Option on macOS (macOptionClickForcesSelection).
-      const force = await page.evaluate(() => /Mac/.test(navigator.platform)) ? 'Alt' : 'Shift'
+      const force = mac ? 'Alt' : 'Shift'
       await page.keyboard.down(force); await screen.click({ position: { x: 120, y: 30 }, clickCount: 3 }); await page.keyboard.up(force);
-      await page.keyboard.press('Control+c');
+      await page.keyboard.press(copyKey);
       assert.match(await page.evaluate(() => navigator.clipboard.readText()), /Fixture line/);
-      assert.ok(writes.get(agent).every(data => !data.includes('\x03')), `${agent}: Ctrl+C must never reach PTY`);
+      if (mac) {
+        assert.ok(writes.get(agent).every(data => !data.includes('\x03')), `${agent}: Cmd+C must not reach PTY`);
+        await page.locator('.xterm-helper-textarea').focus(); await page.keyboard.press('Control+c');
+        for (let i = 0; i < 20 && !writes.get(agent).includes('\x03'); i++) await new Promise(resolve => setTimeout(resolve, 20));
+        assert.ok(writes.get(agent).includes('\x03'), `${agent}: on macOS Ctrl+C interrupts the CLI`);
+      } else assert.ok(writes.get(agent).every(data => !data.includes('\x03')), `${agent}: Ctrl+C must never reach PTY`);
     } else {
       await page.locator('.xterm-helper-textarea').focus(); await page.keyboard.press('Control+c');
       for (let i = 0; i < 20 && !writes.get(agent).includes('\x03'); i++) await new Promise(resolve => setTimeout(resolve, 20));
@@ -145,7 +153,7 @@ try {
     }
   }
   assert.deepEqual(realPageErrors(errors), []);
-  console.log('UI passed: 12 clickable wrapping tabs; Markdown preview/edit/save/conflict/draft; local Skills; MCP filtering, checks and hidden credentials; terminal bottom row visible across four window/font sizes; Codex/Claude/OpenCode/Kimi copy and scroll; PowerShell interrupt.');
+  console.log('UI passed: 12 clickable wrapping tabs; Markdown preview/edit/save/conflict/draft; local Skills; MCP filtering, checks and hidden credentials; terminal bottom row visible across four window/font sizes; Codex/Claude/OpenCode/Kimi copy and scroll (Cmd+C copy and Ctrl+C interrupt on macOS); shell interrupt.');
 } finally {
   await browser?.close();
   for (const session of service.sessions.items.values()) session.process = null;

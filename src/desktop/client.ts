@@ -19,7 +19,7 @@ if (isDesktop && token) {
 const listeners = new Set<() => void>()
 const events = new Set<(event: ServiceEvent) => void>()
 let state: DesktopState = {
-  ready: false, connected: false, error: null, repo: '', contentBase: '', agents: [], sessions: [], selectedId: null, notices: [],
+  ready: false, connected: false, disconnectedAt: null, error: null, repo: '', contentBase: '', agents: [], sessions: [], selectedId: null, notices: [],
   settings: { defaultAgent: 'codex', defaultBypass: false }, coordinator: 'idle', voice: { configured: false, owner: null }, operations: [], preview: null, voiceHistory: [],
 }
 let socket: WebSocket | null = null
@@ -41,9 +41,11 @@ export async function api<T>(path: string, data?: unknown, method?: string): Pro
     body: data === undefined ? undefined : JSON.stringify(data),
   })
   const value = await response.json()
-  if (!response.ok) throw new Error(value.error || `Request failed (${response.status})`)
+  // The body travels with the error: a failed reopen still carries the tab it opened.
+  if (!response.ok) throw Object.assign(new Error(value.error || `Request failed (${response.status})`), { status: response.status, data: value })
   return value as T
 }
+export const errorData = (error: unknown) => (error as { data?: Record<string, unknown> } | null)?.data
 export function pickFiles(): Promise<string[]> {
   const requestId = crypto.randomUUID()
   return new Promise((resolve, reject) => {
@@ -57,6 +59,22 @@ export function pickFiles(): Promise<string[]> {
     window.addEventListener('mrmak-picked-files', picked)
     window.addEventListener('pagehide', closed)
     api('/files/pick', { requestId }).catch(error => { cleanup(); reject(error) })
+  })
+}
+// The shell's native folder picker (C-17). Resolves with null when cancelled.
+export function pickFolder(directory?: string): Promise<string | null> {
+  const requestId = crypto.randomUUID()
+  return new Promise((resolve, reject) => {
+    const cleanup = () => { window.removeEventListener('mrmak-picked-folder', picked); window.removeEventListener('pagehide', closed) }
+    const picked = (event: Event) => {
+      const detail = (event as CustomEvent<{ requestId: string; path: string | null }>).detail
+      if (detail?.requestId !== requestId) return
+      cleanup(); resolve(detail.path || null)
+    }
+    const closed = () => { cleanup(); reject(new Error('The folder picker window was closed.')) }
+    window.addEventListener('mrmak-picked-folder', picked)
+    window.addEventListener('pagehide', closed)
+    api('/folders/pick', { requestId, directory }).catch(error => { cleanup(); reject(error) })
   })
 }
 export async function uploadImage(file: File): Promise<{ path: string; name: string }> {
@@ -101,7 +119,7 @@ function connect() {
   socket.onopen = () => socket?.send(JSON.stringify({ type: 'auth', token, clientId, surface }))
   socket.onmessage = ({ data }) => {
     const event = JSON.parse(data) as ServiceEvent
-    if (event.type === 'connected') update({ connected: true, sessions: event.sessions || state.sessions, selectedId: event.selectedId ?? state.selectedId, coordinator: event.state || state.coordinator, error: null })
+    if (event.type === 'connected') update({ connected: true, disconnectedAt: null, sessions: event.sessions || state.sessions, selectedId: event.selectedId ?? state.selectedId, coordinator: event.state || state.coordinator, error: null })
     if (event.type === 'selection') update({ selectedId: event.selectedId || null })
     if (event.type === 'session' && event.session) {
       const next = event.session
@@ -131,7 +149,7 @@ function connect() {
     events.forEach(listener => listener(event))
   }
   socket.onclose = () => {
-    update({ connected: false })
+    update({ connected: false, disconnectedAt: state.disconnectedAt ?? Date.now() })
     clearTimeout(reconnectTimer)
     reconnectTimer = window.setTimeout(connect, 1500)
     events.forEach(listener => listener({ type: 'disconnected' }))
@@ -142,3 +160,45 @@ function connect() {
 // Exposing a capability through a DOM attribute would give report pages access to it.
 // It lives only in this UI origin, which is separate from the report server.
 window.addEventListener('pagehide', () => { token = ''; socket?.close(); clearTimeout(reconnectTimer) })
+
+// App menu (macOS): the shell forwards a chosen item to the focused window as
+// a 'mrmak-menu' event with { action }. Each surface handles what applies to it.
+export type MenuAction = 'new-chat' | 'close-tab' | 'history' | 'find-chat' | 'clear-terminal' | 'prev-tab' | 'next-tab' | 'chat-options' | 'settings' | 'help'
+export function onMenu(listener: (action: MenuAction) => void) {
+  const handle = (event: Event) => { const action = (event as CustomEvent<{ action?: MenuAction }>).detail?.action; if (action) listener(action) }
+  window.addEventListener('mrmak-menu', handle)
+  return () => window.removeEventListener('mrmak-menu', handle)
+}
+// A key handled in the page can also reach the menu as its key equivalent.
+// The page marks it, and a menu event for the same action right after is ignored.
+const handledKeys = new Map<MenuAction, number>()
+export const markKeyHandled = (action: MenuAction) => { handledKeys.set(action, Date.now()) }
+export const handledByKey = (action: MenuAction) => Date.now() - (handledKeys.get(action) || 0) < 400
+if (surface === 'workspace') onMenu(action => {
+  if (handledByKey(action)) return
+  if (action === 'help') api<Preview>(`/preview?path=${encodeURIComponent(`${state.repo}/workspace/_shared/help.md`)}`).then(setPreview).catch(reportError)
+  // The Settings panel lives in the Files rail; open it the way its own button does.
+  if (action === 'settings') { const button = document.querySelector<HTMLButtonElement>('.files-rail [aria-label="Toggle settings"]'); if (button && button.getAttribute('aria-pressed') !== 'true') button.click() }
+})
+
+// Chats shortcuts. macOS uses Cmd like other Mac apps; the Ctrl+Shift keys keep
+// working everywhere, and stay the only map on Windows and Linux (C-06, C-11).
+export type ChatShortcut = MenuAction | 'focus-tabs'
+export const chatKeys = isMac
+  ? { newChat: 'Cmd+T', closeTab: 'Cmd+W', history: 'Cmd+Shift+H', find: 'Cmd+P', tabs: 'Cmd+Shift+L', options: 'Cmd+Shift+O', clear: 'Cmd+K', switchTabs: 'Cmd+Shift+[ ]' }
+  : { newChat: 'Ctrl+Shift+T', closeTab: 'Ctrl+Shift+W', history: 'Ctrl+Shift+H', find: 'Ctrl+Shift+P', tabs: 'Ctrl+Shift+L', options: 'Ctrl+Shift+O', clear: '', switchTabs: 'Ctrl+Tab' }
+export function chatShortcut(event: KeyboardEvent): ChatShortcut | null {
+  const ctrlShift = event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey
+  const cmd = isMac && event.metaKey && !event.ctrlKey && !event.altKey
+  const code = event.code
+  if ((ctrlShift && code === 'KeyT') || (cmd && !event.shiftKey && code === 'KeyT')) return 'new-chat'
+  if ((ctrlShift && code === 'KeyW') || (cmd && !event.shiftKey && code === 'KeyW')) return 'close-tab'
+  if ((ctrlShift && code === 'KeyH') || (cmd && event.shiftKey && code === 'KeyH')) return 'history'
+  if ((ctrlShift && code === 'KeyP') || (cmd && code === 'KeyP')) return 'find-chat'
+  if ((ctrlShift && code === 'KeyL') || (cmd && event.shiftKey && code === 'KeyL')) return 'focus-tabs'
+  if ((ctrlShift && code === 'KeyO') || (cmd && event.shiftKey && code === 'KeyO')) return 'chat-options'
+  if (cmd && !event.shiftKey && code === 'KeyK') return 'clear-terminal'
+  if (event.ctrlKey && !event.metaKey && !event.altKey && code === 'Tab') return event.shiftKey ? 'prev-tab' : 'next-tab'
+  if (cmd && event.shiftKey && (code === 'BracketLeft' || code === 'BracketRight')) return code === 'BracketLeft' ? 'prev-tab' : 'next-tab'
+  return null
+}

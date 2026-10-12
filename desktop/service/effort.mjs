@@ -1,5 +1,7 @@
 export const workerEfforts = ['medium', 'high', 'xhigh', 'max'];
 export const defaultWorkerEffort = 'xhigh';
+// Agents whose CLI takes a reasoning effort: Codex, Claude Code and Claude on Strix.
+export const effortAgents = ['codex', 'claude', 'strix'];
 
 export function explicitMax(text = '') {
   const value = String(text).toLowerCase();

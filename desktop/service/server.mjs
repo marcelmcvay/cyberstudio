@@ -13,7 +13,8 @@ import { Attachments, attachmentText, MAX_IMAGE_BYTES } from './attachments.mjs'
 import { intake, isInbox } from './intake.mjs';
 import { ContextLibrary } from './context.mjs';
 import { taskTitle } from './titles.mjs';
-import { taskEffort } from './effort.mjs';
+import { taskEffort, workerEfforts, effortAgents } from './effort.mjs';
+import { recentConversations } from './conversations.mjs';
 import { Workspace, localDay } from './workspace.mjs';
 import { QuickActions } from './quick-actions.mjs';
 import { defaultVoiceStyle, voiceSession } from './voice-profile.mjs';
@@ -294,21 +295,50 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
           if (['dark', 'light', 'system'].includes(data.workspaceTheme)) settings.workspaceTheme = data.workspaceTheme;
           if (['medium', 'high'].includes(data.coordinatorEffort)) settings.coordinatorEffort = data.coordinatorEffort;
           if (['cedar', 'marin'].includes(data.voiceName)) settings.voiceName = data.voiceName;
+          // Reasoning effort for new chats, remembered per agent (C-27).
+          if (data.agentEffort && typeof data.agentEffort === 'object') {
+            const next = { ...(settings.agentEffort || {}) };
+            for (const [agent, effort] of Object.entries(data.agentEffort)) if (effortAgents.includes(agent) && workerEfforts.includes(effort)) next[agent] = effort;
+            settings.agentEffort = next;
+          }
           await saveSettings(); broadcast('settings', { settings }); return json(response, 200, settings);
         }
-        if (method === 'POST' && url.pathname === '/api/sessions') { const session = await sessions.create({ ...data, bypass: data.bypass ?? settings.defaultBypass }); await integrations.publish('session', { event: 'started', session }); focus(session.id); return json(response, 201, session); }
+        if (method === 'POST' && url.pathname === '/api/sessions') {
+          const effort = effortAgents.includes(data.agent) ? data.effort || settings.agentEffort?.[data.agent] : undefined;
+          const session = await sessions.create({ ...data, effort, bypass: data.bypass ?? settings.defaultBypass });
+          // The last five working folders, newest first, for New chat (C-17).
+          settings.recentFolders = [session.cwd, ...(settings.recentFolders || []).filter(folder => folder !== session.cwd)].slice(0, 5);
+          scheduleSettings(); broadcast('settings', { settings });
+          await integrations.publish('session', { event: 'started', session }); focus(session.id); return json(response, 201, session);
+        }
+        // A native folder picker in the shell; the answer arrives as a window event (C-17).
+        if (method === 'POST' && url.pathname === '/api/folders/pick') {
+          if (typeof data.requestId !== 'string' || !data.requestId) throw new Error('A picker request ID is required');
+          native({ type: 'pick-folder', window: 'chats', requestId: data.requestId, directory: typeof data.directory === 'string' ? data.directory : undefined });
+          return json(response, 202, { requested: true });
+        }
         const sessionRoute = /^\/api\/sessions\/([\w-]+)(?:\/(\w+))?$/.exec(url.pathname);
         if (sessionRoute) {
           const [, id, action] = sessionRoute;
           if (method === 'GET' && action === 'screen') return json(response, 200, await sessions.read(id));
           if (method === 'POST' && action === 'focus') return json(response, 200, focus(id));
           if (method === 'POST' && action === 'stop') return json(response, 200, sessions.stop(id));
-          if (method === 'POST' && action === 'resume') { const session = await sessions.resume(id, data.nativeId); focus(id); return json(response, 200, session); }
+          if (method === 'POST' && action === 'resume') {
+            try { const session = await sessions.resume(id, typeof data.nativeId === 'string' && data.nativeId.trim() ? data.nativeId.trim() : undefined, { fresh: data.fresh === true, fromHistory: data.fromHistory === true }); focus(id); return json(response, 200, session); }
+            catch (error) {
+              // The tab opened with its saved screen and the reason: select it, no banner (C-01, C-18).
+              const session = sessions.items.get(id);
+              if (session?.open) { focus(id); return json(response, error.status || 409, { error: publicError(error), code: error.code, session: sessions.list().find(item => item.id === id) }); }
+              throw error;
+            }
+          }
+          if (method === 'GET' && action === 'busy') return json(response, 200, { busy: await sessions.busy(id) });
+          if (method === 'GET' && action === 'conversations') { const session = sessions.get(id); return json(response, 200, await recentConversations(session.agent, session.cwd)); }
           if (method === 'POST' && action === 'attach') return json(response, 200, await attach(id, data.paths));
           if (method === 'POST' && action === 'clear') return json(response, 200, await sessions.clearScreen(id));
           if (method === 'POST' && action === 'reorder') return json(response, 200, await sessions.reorder(id, data.targetId, data.position));
           if (method === 'POST' && action === 'input') return json(response, 200, sessions.input(id, data.text, { coordinator: data.paste !== false, submit: data.submit !== false }));
-          if (method === 'PATCH' && !action) return json(response, 200, typeof data.pinned === 'boolean' ? sessions.pin(id, data.pinned) : 'tabColor' in data ? sessions.color(id, data.tabColor) : sessions.rename(id, data.name));
+          if (method === 'PATCH' && !action) return json(response, 200, typeof data.pinned === 'boolean' ? sessions.pin(id, data.pinned) : 'tabColor' in data ? sessions.color(id, data.tabColor) : 'effort' in data ? sessions.setEffort(id, data.effort) : sessions.rename(id, data.name));
           if (method === 'DELETE' && !action) return json(response, 200, await closeChat(id));
         }
         if (method === 'POST' && url.pathname === '/api/window') {
@@ -404,7 +434,11 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
   return {
     origin, contentOrigin: files.origin, token, sessions, coordinator, quick, workspace, files, projects, knowledge, integrations,
     urls: { workspace: `${origin}/?desktop=1&surface=workspace&token=${token}`, chats: `${origin}/?desktop=1&surface=chats&token=${token}` },
-      nativeMessage: event => nativeSettings.receive(event),
+      nativeMessage: event => {
+        // Quit (menu, Cmd+Q or tray) asks first which chats would stop mid-work (C-07).
+        if (event?.type === 'quit-check') { sessions.busyChats().catch(() => []).then(chats => native({ type: 'quit-check', requestId: event.requestId, chats })); return; }
+        nativeSettings.receive(event);
+      },
       async close() {
         if (closing) return; closing = true; trash.close(); mcp.close(); nativeSettings.close(); await files.writes.catch(() => {});
       watcher?.close(); clearTimeout(restoreTimer); coordinator.close(); clearTimeout(settingsTimer); await saveSettings(); await transcriptSave; await quick.saves; await workspace.writes; await assets.writes.catch(() => {});

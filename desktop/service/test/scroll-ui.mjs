@@ -71,7 +71,8 @@ try {
   // Copy and ordinary typing still use the existing agent-chat rules.
   await page.locator('.xterm-helper-textarea').focus();
   await page.evaluate(() => navigator.clipboard.writeText('copy sentinel'));
-  await page.keyboard.press('Control+c');
+  // Copy is Cmd+C on macOS (Ctrl+C interrupts there, C-10) and Ctrl+C elsewhere.
+  await page.keyboard.press(await page.evaluate(() => /Mac/.test(navigator.platform)) ? 'Meta+c' : 'Control+c');
   assert.equal(await page.evaluate(() => navigator.clipboard.readText()), 'copy sentinel');
   assert.equal(writes.get('opencode-fullscreen').some(x => x.includes('\x03')), false);
   await page.keyboard.type('draft');

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { AgentInfo, ChatSession } from './types'
 import { api, reportError } from './client'
 import { chatActivityLabel, chatBadgeText, chatState } from './chatActivity'
@@ -68,15 +68,60 @@ export default function ChatTabs({ items, selectedId, agents, choose, close }: {
     if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); closeTab(items[index].id) }
     else if (next >= 0) { event.preventDefault(); tabs[next]?.focus() }
   }
+  // One row that scrolls sideways; tabs out of view are listed under "N more" (C-14).
+  const [hidden, setHidden] = useState<string[]>([])
+  const [overflowOpen, setOverflowOpen] = useState(false)
+  const overflowRef = useRef<HTMLDivElement>(null)
+  const measure = useCallback(() => {
+    const element = strip.current
+    if (!element) return
+    const box = element.getBoundingClientRect()
+    const next = [...element.querySelectorAll<HTMLElement>('[data-chat-tab]')].filter(tab => { const rect = tab.getBoundingClientRect(); return rect.left < box.left - 2 || rect.right > box.right + 2 }).map(tab => tab.dataset.chatTab || '')
+    setHidden(current => current.length === next.length && current.every((id, index) => id === next[index]) ? current : next)
+  }, [])
+  useLayoutEffect(() => {
+    const element = strip.current
+    if (!element) return
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    element.addEventListener('scroll', measure, { passive: true })
+    // A mouse wheel scrolls the row sideways.
+    const wheel = (event: WheelEvent) => { if (Math.abs(event.deltaY) > Math.abs(event.deltaX) && element.scrollWidth > element.clientWidth) { event.preventDefault(); element.scrollLeft += event.deltaY } }
+    element.addEventListener('wheel', wheel, { passive: false })
+    return () => { observer.disconnect(); element.removeEventListener('scroll', measure); element.removeEventListener('wheel', wheel) }
+  }, [measure])
+  useLayoutEffect(() => {
+    strip.current?.querySelector<HTMLElement>(`[data-chat-tab="${CSS.escape(selectedId || '')}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    measure()
+  }, [items, selectedId, measure])
+  useEffect(() => {
+    if (!overflowOpen) return
+    const outside = (event: PointerEvent) => { if (!overflowRef.current?.contains(event.target as Node)) setOverflowOpen(false) }
+    document.addEventListener('pointerdown', outside, true)
+    return () => document.removeEventListener('pointerdown', outside, true)
+  }, [overflowOpen])
+  const hiddenItems = items.filter(item => hidden.includes(item.id))
+  if (overflowOpen && !hiddenItems.length) setOverflowOpen(false)
+  function overflowKeys(event: React.KeyboardEvent<HTMLDivElement>) {
+    const entries = [...(overflowRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') || [])]
+    const index = entries.indexOf(document.activeElement as HTMLButtonElement)
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setOverflowOpen(false); overflowRef.current?.querySelector<HTMLButtonElement>('.chat-tabs-more')?.focus() }
+    else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); entries[(index + (event.key === 'ArrowDown' ? 1 : -1) + entries.length) % entries.length]?.focus() }
+  }
   const dragged = items.find(item => item.id === dragging?.id)
-  return <div ref={strip} className={`chat-tabs ${dragging ? 'is-reordering' : ''}`} role="tablist" aria-label="Agent chats">
+  return <div className="chat-tabs-wrap"><div ref={strip} className={`chat-tabs ${dragging ? 'is-reordering' : ''}`} role="tablist" aria-label="Agent chats">
     {items.map((item, index) => <div key={item.id} data-chat-tab={item.id} className={`chat-tab tab-${chatState(item)} ${selectedId === item.id ? 'selected' : ''} ${item.tabColor ? 'has-color' : ''} ${dragging?.id === item.id ? 'dragging' : ''} ${target?.id === item.id ? `drop-${target.position}` : ''}`} style={{ '--tab-accent': item.tabColor || '#e2a7a0' } as React.CSSProperties}>
       <button role="tab" aria-selected={selectedId === item.id} tabIndex={selectedId === item.id ? 0 : -1} onKeyDown={event => keys(event, index)} onClick={event => { if (!suppressClick.current || event.detail === 0) choose(item.id) }} onPointerDown={event => begin(event, item)} onPointerMove={move} onPointerUp={finish} onPointerCancel={clear} onLostPointerCapture={clear}
         className="chat-tab-select" aria-label={`${item.name} · ${chatActivityLabel(item)}`} title={`${agents.find(a => a.id === item.agent)?.label} · ${item.name}\n${chatActivityLabel(item)}\nDrag to reorder ${item.pinned ? 'pinned' : 'unpinned'} tabs · Delete to close\n${item.cwd}`}>
-        <span style={{ color: agents.find(a => a.id === item.agent)?.color }}><SessionLogo session={item} /></span><span className="chat-tab-name">{item.name}</span>{chatBadgeText(item) && <span className={`chat-tab-badge badge-${chatState(item)}`}>{chatBadgeText(item)}</span>}{item.pinned && <span className="tab-pinned" title="Pinned in History"><Icon name="pin" size={11} /></span>}
+        <span style={{ color: agents.find(a => a.id === item.agent)?.color }}><SessionLogo session={item} /></span><span className="chat-tab-name">{item.name}</span>{chatBadgeText(item) && <span className={`chat-tab-badge badge-${chatState(item)}`}>{chatBadgeText(item)}</span>}{item.pinned && <span className="tab-pinned" title="Pinned tab · stays first"><Icon name="pin" size={11} /></span>}
       </button>
       <button className="chat-tab-close" tabIndex={-1} onClick={() => closeTab(item.id)} aria-label={`Close ${item.name}`} title="Close tab · keep in History"><Icon name="close" size={12} /></button>
     </div>)}
     {dragging && dragged && <div className="chat-tab-ghost" style={{ left: dragging.x + 13, top: dragging.y + 13, color: dragged.tabColor || '#d8d0cb' }} aria-hidden="true"><SessionLogo session={dragged} /><span>{dragged.name}</span>{dragged.pinned && <Icon name="pin" size={12} />}</div>}
+  </div>
+  {hiddenItems.length > 0 && <div className="chat-tabs-overflow" ref={overflowRef} onKeyDown={overflowKeys}>
+    <button className="chat-tabs-more" aria-haspopup="menu" aria-expanded={overflowOpen} onClick={() => { setOverflowOpen(value => !value); requestAnimationFrame(() => overflowRef.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()) }} title="Tabs out of view">{hiddenItems.length} more</button>
+    {overflowOpen && <div className="chat-tabs-menu" role="menu" aria-label="Tabs out of view">{hiddenItems.map(item => <button key={item.id} role="menuitem" tabIndex={-1} className={selectedId === item.id ? 'selected' : ''} onClick={() => { setOverflowOpen(false); choose(item.id) }} style={{ '--tab-accent': item.tabColor || 'transparent' } as React.CSSProperties}><span style={{ color: agents.find(a => a.id === item.agent)?.color }}><SessionLogo session={item} size={15} /></span><span className="chat-tab-name">{item.name}</span>{chatBadgeText(item) && <small className={`badge-${chatState(item)}`}>{chatBadgeText(item)}</small>}</button>)}</div>}
+  </div>}
   </div>
 }

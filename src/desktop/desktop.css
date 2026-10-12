@@ -213,3 +213,82 @@ html[data-workspace-theme=light] .file-trash{color:var(--pink)}
 .chat-folder.remote-fallback{color:#e6c07f}
 .reconnect-details{margin-top:4px;color:#978b84}.reconnect-details summary{cursor:pointer;width:max-content}
 .reconnect-details code{display:block;margin-top:4px;white-space:pre-wrap;word-break:break-word;font-family:var(--font-mono);font-size:9px;color:#b4a79f}
+/* Chats backlog: close confirm, offline, menus, one-row tabs, mic, dialogs (C-05 to C-30). */
+.chats-root .desktop-offline{display:none}
+.chats-offline{display:flex;align-items:center;gap:10px;padding:6px 13px;background:#3c3020;color:#eccb95;font-size:11px;line-height:1.45;flex-shrink:0}
+.chats-offline>span{flex:1}
+.chats-offline.stopped{background:#4a2523;color:#f6c2bd}
+.chats-offline button{flex-shrink:0;padding:5px 11px;border-radius:5px;border:1px solid #f6c2bd55;background:#ffffff0d;color:#fde3df;font-size:11px}
+.chats-offline button:hover{background:#ffffff1a}
+.terminal-offline{position:absolute;z-index:9;left:50%;top:14px;transform:translateX(-50%);display:flex;flex-direction:column;gap:3px;max-width:calc(100% - 32px);padding:9px 14px;border:1px solid #eccb9544;border-radius:8px;background:#2a231bf2;color:#eccb95;font-size:11px;line-height:1.45;text-align:center;box-shadow:0 8px 30px #0008;pointer-events:none}
+.terminal-offline strong{font-size:12px;font-weight:600}
+.terminal-offline span{color:#cdb894}
+/* One scrolling row of tabs; the rest under "N more" (C-14). */
+.chat-tabs-wrap{display:flex;align-items:stretch;min-width:0;flex:1}
+.chat-tabs{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;scroll-padding:0 8px}
+.chat-tabs::-webkit-scrollbar{display:none}
+.chat-tabs-overflow{position:relative;display:flex;align-items:center;flex-shrink:0;padding:0 2px 0 4px}
+.chat-tabs-more{height:26px;padding:0 9px;border-radius:13px;border:1px solid #ffffff1a;background:#ffffff08;color:#cfc6c0;font-size:11px;white-space:nowrap}
+.chat-tabs-more:hover,.chat-tabs-more[aria-expanded=true]{background:#ffffff12;color:#eee8e4}
+.chat-tabs-menu{position:absolute;z-index:70;top:calc(100% + 4px);right:0;width:240px;max-height:60vh;overflow-y:auto;padding:5px;border:1px solid #ffffff14;border-radius:9px;background:#221d1a;box-shadow:0 15px 45px #0009}
+.chat-tabs-menu button{display:flex;align-items:center;gap:8px;width:100%;padding:8px 9px;border:0;border-radius:5px;background:none;text-align:left;font-size:11px;color:#d6cec8;box-shadow:inset 3px 0 0 var(--tab-accent)}
+.chat-tabs-menu button:hover,.chat-tabs-menu button:focus-visible{background:#ffffff0c;outline:none}
+.chat-tabs-menu button.selected{color:#fff}
+.chat-tabs-menu .chat-tab-name{flex:1;min-width:0}
+.chat-tabs-menu small{font-size:9px;color:#b9aea7}.chat-tabs-menu small.badge-waiting{color:#f6d08a}
+/* Tab color is a stripe; only the selected tab is filled (C-13). */
+.chat-tab.has-color{background:transparent;box-shadow:inset 3px 0 0 var(--tab-accent);border-radius:0}
+.chat-tab.has-color .chat-tab-name{color:inherit}
+.chat-tab.has-color.selected{background:color-mix(in srgb,var(--tab-accent) 15%,transparent)}
+.chat-tab.has-color .chat-tab-select{padding-left:2px}
+/* Cy voice in the Chats header: a microphone with a visible state (C-23). */
+.voice-dock.chats .voice-controls .voice-nose.voice-mic{display:inline-flex;align-items:center;gap:6px;height:28px;min-width:30px;padding:0 8px;border:1px solid #ffffff1f;border-radius:14px;background:#ffffff08;color:#b8ada6;box-shadow:none}
+.voice-dock.chats .voice-controls .voice-nose.voice-mic:hover:not(:disabled){background:#ffffff12;color:#eee8e4}
+.voice-dock.chats .voice-nose.voice-mic svg{width:16px}
+.voice-dock.chats .voice-controls .voice-nose.voice-mic[aria-pressed=true]{border-color:#ff8f84;background:#ff8f8424;color:#ffd2cc}
+.voice-dock.chats .voice-nose.voice-mic>.voice-mic-label{display:inline;font-size:10px;font-weight:600;letter-spacing:.02em}
+.voice-dock.chats .voice-nose.voice-mic.state-live{animation:mic-ring 1.6s ease-out infinite}
+.voice-dock.chats .voice-nose.voice-mic:disabled{opacity:.45}
+@keyframes mic-ring{0%{box-shadow:0 0 0 0 #ff8f8466}70%{box-shadow:0 0 0 7px #ff8f8400}100%{box-shadow:0 0 0 0 #ff8f8400}}
+@media (prefers-reduced-motion:reduce){.voice-dock.chats .voice-nose.voice-mic.state-live{animation:none;outline:2px solid #ff8f8488;outline-offset:2px}}
+/* New chat: folder picker, recent folders, effort (C-17, C-27). */
+.folder-field>label{display:block}
+.folder-row{display:flex;gap:6px;min-width:0}
+.folder-row input{flex:1;min-width:0}
+.folder-choose{flex-shrink:0;min-height:0;padding:6px 10px;font-size:11px}
+.recent-folders{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.recent-folders>small{font-size:10px;color:#8b827c;margin-right:2px}
+.recent-folders button{display:inline-flex;align-items:center;gap:5px;max-width:160px;padding:3px 8px;border-radius:11px;border:1px solid #ffffff14;background:#ffffff06;color:#c9bfb9;font-size:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.recent-folders button:hover{background:#ffffff10}
+.effort-field select{font-size:12px;padding:7px 9px;border-radius:6px;border:1px solid #ffffff14;background:#191513;color:#e6e0dc}
+.desk-offline-inline{font-size:11px;line-height:1.5;color:#eccb95;padding:0 0 9px}
+.desk-dialog [role=radio]:focus-visible,.desk-dialog .desk-check input:focus-visible{outline:2px solid #e2a7a0;outline-offset:2px}
+/* Close confirm and conversation picker (C-05, C-18). */
+.confirm-dialog{width:380px}
+.confirm-dialog p{margin:0 0 20px;font-size:14px;line-height:1.5;color:#ece6e2}
+.confirm-actions{display:flex;justify-content:flex-end;gap:8px}
+.confirm-actions .desk-primary,.confirm-actions .desk-secondary{width:auto;min-height:34px;font-size:12px}
+.desk-primary.danger{background:#c8574e;color:#fff;border-color:#c8574e}
+.desk-primary.danger:hover{background:#d8665c}
+.conversation-list{display:flex;flex-direction:column;gap:4px;max-height:45vh;overflow-y:auto;margin:10px 0 14px}
+.conversation-list button{display:flex;flex-direction:column;gap:3px;padding:9px 10px;border:1px solid #ffffff0d;border-radius:7px;background:#ffffff04;text-align:left}
+.conversation-list button:hover,.conversation-list button:focus-visible{background:#ffffff0d}
+.conversation-list strong{font-size:12px;font-weight:500;color:#e7e1dd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conversation-list small{font-size:10px;color:#968c86}
+.conversation-manual{display:flex;align-items:flex-end;gap:8px}
+.conversation-manual .desk-field{flex:1;margin:0}
+.conversation-manual .desk-secondary{min-height:34px;font-size:11px}
+.terminal-reconnect .reconnect-actions{display:flex;flex-wrap:wrap;gap:6px;flex:0 1 auto;justify-content:flex-end}
+.terminal-reconnect.conversation-missing{flex-wrap:wrap}
+/* Footer effort and shortcuts (C-06, C-27). */
+.chat-status .effort-button{padding:1px 6px;border-radius:4px;border:1px solid #ffffff1a;background:none;color:inherit;font:inherit;cursor:pointer}
+.chat-status .effort-button:hover,.chat-status .effort-button[aria-expanded=true]{background:#ffffff0d;color:#e6e0dc}
+.effort-menu{position:absolute;z-index:66;right:10px;bottom:32px;width:230px;padding:6px;border:1px solid #ffffff14;border-radius:9px;background:#221d1a;box-shadow:0 15px 45px #0009}
+.effort-menu p{margin:2px 6px 6px;font-size:10px;line-height:1.45;color:#a0958e}
+.effort-menu button{display:flex;justify-content:space-between;width:100%;padding:8px 9px;border:0;border-radius:5px;background:none;text-align:left;font-size:11px;color:#ddd5cf}
+.effort-menu button:hover{background:#ffffff0a}
+.effort-menu button[aria-checked=true]{color:#fff;font-weight:600}
+.chat-options kbd{float:right;font:10px var(--font-mono);color:#8f857f;margin-left:8px}
+.chat-status>span:first-child{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:560px){.chat-status>.status-shortcut:last-child{display:none}}
+.voice-dock.chats .voice-controls .voice-nose.voice-mic>.voice-mic-label{max-width:none;opacity:1;margin:0;padding:0;background:none;box-shadow:none}

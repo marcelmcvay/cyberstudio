@@ -3,13 +3,15 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import '@xterm/xterm/css/xterm.css'
-import { api, onServiceEvent, pickFiles, reportError, sendEvent, uploadImage } from './client'
+import { api, chatKeys, chatShortcut, isMac, onServiceEvent, pickFiles, reportError, sendEvent, uploadImage } from './client'
 import { Icon } from './Icons'
 import type { AgentId } from './types'
 import { fileManager, pasteKey } from './platform'
 import { decorateTerminal, focusTheme, originalTheme, type TerminalAppearance } from './terminalAppearance'
 
-export default function TerminalPane({ id, agent, fontSize, appearance, onAttachmentStatus }: { id: string; agent: AgentId; fontSize: number; appearance: TerminalAppearance; onAttachmentStatus: (id: string, text: string) => void }) {
+// offline: the local service is down, typing would be lost (C-20).
+// readOnly: a saved screen whose conversation is missing (C-18).
+export default function TerminalPane({ id, agent, fontSize, appearance, onAttachmentStatus, offline = false, readOnly = false }: { id: string; agent: AgentId; fontSize: number; appearance: TerminalAppearance; onAttachmentStatus: (id: string, text: string) => void; offline?: boolean; readOnly?: boolean }) {
   const host = useRef<HTMLDivElement>(null)
   const area = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
@@ -18,6 +20,11 @@ export default function TerminalPane({ id, agent, fontSize, appearance, onAttach
   const statusTimer = useRef(0)
   const uploading = useRef(false)
   const choosing = useRef(false)
+  const blocked = useRef(offline || readOnly)
+  useEffect(() => {
+    blocked.current = offline || readOnly
+    if (terminalRef.current) terminalRef.current.options.disableStdin = offline || readOnly
+  }, [offline, readOnly])
   async function pasteImages(files: File[]) {
     if (!files.length || uploading.current) return
     clearTimeout(statusTimer.current)
@@ -83,6 +90,9 @@ export default function TerminalPane({ id, agent, fontSize, appearance, onAttach
       cursorBlink: true, cursorStyle: 'bar', scrollback: 3000, allowTransparency: false, allowProposedApi: true,
       theme: originalTheme,
       macOptionIsMeta: true,
+      // Option-drag selects text even while a CLI has turned on mouse reporting.
+      macOptionClickForcesSelection: true,
+      disableStdin: blocked.current,
       linkHandler: { activate: openLink },
     })
     const fit = new FitAddon(); terminal.loadAddon(fit); terminal.loadAddon(new WebLinksAddon(openLink)); terminal.open(host.current)
@@ -119,27 +129,28 @@ export default function TerminalPane({ id, agent, fontSize, appearance, onAttach
       // Terminal protocol replies intentionally contain ASCII control characters.
       // eslint-disable-next-line no-control-regex
       const deviceReply = /^\x1b\[[?>0-9;]*[RcnIO]$/.test(data) || /^\x1b\][\s\S]*(?:\x07|\x1b\\)$/.test(data)
-      if (ready && !deviceReply) sendEvent({ type: 'input', id, data })
+      if (ready && !deviceReply && !blocked.current) sendEvent({ type: 'input', id, data })
     })
+    const isC = (event: KeyboardEvent) => event.code === 'KeyC' || event.key.toLowerCase() === 'c'
+    const copySelection = (event: KeyboardEvent) => {
+      event.preventDefault(); event.stopPropagation()
+      const selection = terminal.getSelection()
+      if (event.type === 'keydown' && !event.repeat && selection) navigator.clipboard.writeText(selection).catch(reportError)
+      return false
+    }
     terminal.attachCustomKeyEventHandler(event => {
-      // Agent chats use Ctrl+C exclusively for copy. Even an empty selection
-      // must not send ETX to the CLI or terminate its wrapper process.
-      if (event.ctrlKey && !event.altKey && (event.code === 'KeyC' || event.key.toLowerCase() === 'c') && (agent !== 'shell' || event.shiftKey)) {
-        event.preventDefault(); event.stopPropagation()
-        const selection = terminal.getSelection()
-        if (event.type === 'keydown' && !event.repeat && selection) navigator.clipboard.writeText(selection).catch(reportError)
-        return false
-      }
+      // macOS: Cmd+C copies; Ctrl+C reaches the CLI as an interrupt, as in Terminal (C-10).
+      if (isMac && event.metaKey && !event.ctrlKey && !event.altKey && isC(event)) return copySelection(event)
+      // Windows and Linux: agent chats use Ctrl+C only for copy. Even an empty
+      // selection must not send ETX to the CLI or terminate its wrapper process.
+      // Ctrl+Shift+C copies in every chat.
+      if (event.ctrlKey && !event.altKey && !event.metaKey && isC(event) && (event.shiftKey || (!isMac && agent !== 'shell'))) return copySelection(event)
       if (event.type !== 'keydown') return true
       // Leave paste to the DOM clipboard event; do not send Ctrl+V to the CLI.
       if (event.ctrlKey && (event.code === 'KeyV' || event.key.toLowerCase() === 'v')) return false
-      if ((event.ctrlKey && event.code === 'Tab') || (event.ctrlKey && event.shiftKey && ['KeyP', 'KeyT', 'KeyH', 'KeyW'].includes(event.code)) || (event.altKey && /^Digit[1-9]$/.test(event.code))) return false
-      // Cmd+K clears scrollback, as in macOS terminals. The conversation is unchanged.
-      if (event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && event.code === 'KeyK') {
-        event.preventDefault()
-        if (!event.repeat) api(`/sessions/${id}/clear`, {}).catch(reportError)
-        return false
-      }
+      // App shortcuts go to the window: new chat, close, history, find, tabs, options,
+      // Cmd+K clear. Returning false keeps them out of the CLI.
+      if (chatShortcut(event) || (event.altKey && /^Digit[1-9]$/.test(event.code))) return false
       return true
     })
     // Agent TUIs can enable mouse reporting even in the normal buffer. Keep
@@ -179,7 +190,8 @@ export default function TerminalPane({ id, agent, fontSize, appearance, onAttach
     if (terminalRef.current) { terminalRef.current.options.fontSize = fontSize; fitRef.current?.fit(); sendEvent({ type: 'resize', id, cols: terminalRef.current.cols, rows: terminalRef.current.rows }) }
   }, [fontSize, id])
   return <div ref={area} className={`terminal-area ${appearance === 'focus' ? 'terminal-focus' : ''}`} onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = 'none' }} onDrop={event => { event.preventDefault(); event.stopPropagation(); setDragging(false); reportError(`Drop original files or folders from ${fileManager} into CyberStudio Desktop. Paste clipboard images with ${pasteKey}.`) }}>
-    <div ref={host} className="terminal-host" aria-label="Interactive agent terminal" />
+    <div ref={host} className="terminal-host" aria-label={`Interactive agent terminal. ${chatKeys.tabs} moves to the tab strip, ${chatKeys.options} opens Chat options.`} />
+    {offline && <div className="terminal-offline" role="status"><strong>Offline: typing paused</strong><span>The local service is not connected. Nothing you type is sent until it reconnects.</span></div>}
     {dragging && <div className="terminal-drop"><Icon name="attach" size={30} /><strong>Drop to insert paths</strong><span>Files, folders and images</span></div>}
   </div>
 }

@@ -1,5 +1,7 @@
 # Usability backlog
 
+**Status 2026-10-11: all 36 items shipped** (merges 9af335b, 92893eb, 6fb0483, 686e500), using the recommended defaults for the six decisions. Remaining edges are listed at the end.
+
 From the heuristic pass of 2026-10-11 (`checklist.md`, `survey.md`, `findings-workspace.md`, `findings-chats.md`). 35 obvious fixes shipped in d91df69 and a27efbf (merged d7d8494). This is everything else, for Marcel's review.
 
 Severity is the average of two independent raters (NNG 0 to 4). "Decision" means a product call is needed before building. Effort S/M/L.
@@ -99,3 +101,13 @@ Survey patterns 6 to 12. Mr. Mak's rule stays: tools never approve.
 | Project help copies | 1 | S | Projects keep their own `workspace/_shared/help.md`; refresh on launch or link it. |
 | UI test suites need msedge | 1 | S | `desktop:test:ui` launches the msedge channel; switch to WebKit (the real engine). |
 | `test:template` .mcp.json mismatch | 1 | S | Pre-existing; the template check expects the upstream .mcp.json. |
+
+## Shipped: remaining edges
+
+- Quit from the Dock's right-click menu and logout skip the quit confirm (Tauri cannot block them).
+- Codex status (notify, OSC 9 approvals) is built and unit-tested but not yet run in a live Codex chat.
+- Codex "Start a new conversation here" may not detect the new session if the old one is from the same day; Pick or Resume by ID covers it.
+- Windows Shell chats confirm on close only by activity (no foreground-process detection there).
+- The reviewer name is fixed as "Marcel"; note actions address notes by index.
+- One UI suite (`ui.mjs`, "Fixture line") failed once in the full chain and passed on rerun: watch for flakiness.
+- Native menu, quit dialog, folder picker and Dock badge were verified by code and build only; check them in the real app.

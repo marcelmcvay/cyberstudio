@@ -90,21 +90,26 @@ path. After a move, **Undo** in the corner puts the item back.
 
 | Key | Action |
 | --- | --- |
-| Ctrl+Shift+T | New chat |
-| Ctrl+Shift+P | Find a chat |
-| Ctrl+Shift+H | History |
-| Ctrl+Shift+W | Close the current chat |
-| Ctrl+Tab, Ctrl+Shift+Tab | Next or previous chat |
+| Cmd+T | New chat |
+| Cmd+P | Find a chat |
+| Cmd+Shift+H | History |
+| Cmd+W | Close the current chat (asks first if it is still working) |
+| Cmd+Shift+W | Hide the front window |
+| Cmd+Shift+[ and ] | Previous or next chat |
 | Option+1 to Option+9 | Go to chat 1 to 9 |
+| Cmd+Shift+L | Leave the terminal and focus the tab strip |
+| Cmd+Shift+O | Chat options (rename, pin, color, close) |
 | Escape | Close the open menu, Find, History or New chat |
 | Cmd+K | Clear the terminal scrollback. The conversation is unchanged |
-| Cmd+C, or Ctrl+C in an agent chat | Copy selected text. It never interrupts the agent |
-| Ctrl+C in Shell | Interrupt, as in any terminal. Ctrl+Shift+C copies |
+| Cmd+C | Copy selected text |
+| Ctrl+C | Interrupt the agent or command, as in any terminal |
+| Option-drag | Select text even when an agent uses the mouse |
 | Cmd+V | Paste text or a clipboard screenshot |
 | Delete on a focused tab | Close that tab |
+| Left and Right on a focused tab | Move between tabs |
 
-See the menu bar for the full list. On Windows, use Ctrl where this page says
-Cmd and Alt where it says Option.
+Every shortcut is also in the menu bar. On Windows, use Ctrl+Shift with T, P, H and W, Ctrl where this page says
+Cmd elsewhere, and Alt where it says Option. A chat that is working or waiting asks before it closes, and so does Quit.
 
 ## Two windows, one project
 

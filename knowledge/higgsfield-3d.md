@@ -77,3 +77,23 @@ Learned on 9 October 2026, restyling and meshing a set of factory machines. The
   all three dimensions after scaling and decide whether to stretch it.
 - Check meshes in a background Blender (`blender -b`), not in the user's open
   session.
+
+## Part segmentation
+
+- Higgsfield's Tripo models have no parts option. Tripo's own API splits a mesh
+  with `mesh_segmentation`: `uv run scripts/tripo/tripo.py segment --input mesh.glb`.
+  Segment v2 (beta) takes an uploaded file, so a Higgsfield mesh works; v1 needs
+  a mesh made on the Tripo API.
+- On two machine meshes of about 100k triangles, v2 at `balanced` cost 40
+  credits each and ran in under a minute. It returned 48 and 28 nodes named
+  `tripo_part_N`, with no semantic names and no pivots.
+- It splits by shape, not by motion. Assembled parts (signal towers, light
+  curtains, control stations, feet) came out clean. A moving part that sits flush
+  in its guides stayed fused with what surrounds it, and flat panels broke into
+  irregular patches.
+- Every part is an open shell, so moving one shows a hole. Each part gets its own
+  material and small textures (about a quarter of the original texels in total),
+  so join the static parts and re-atlas before a runtime export.
+- Use it as the first cut: keep and pivot the parts it gets right, cut the rest
+  by region. Mesh completion (`mesh_completion`, a separate paid task) is meant
+  to rebuild hidden surface for named parts and is untested here.

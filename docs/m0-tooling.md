@@ -56,10 +56,11 @@ Passes through to `higgsfield generate create ... --wait --json`. Runs `generate
 ```sh
 uv run scripts/tripo/tripo.py check
 uv run scripts/tripo/tripo.py image-to-model --image ref.png [--asset-id ID] [--out DIR] [--dry-run]
+uv run scripts/tripo/tripo.py segment --input (TASK_ID|mesh.glb|URL) [--granularity simple|balanced|detailed] [--asset-id ID] [--dry-run]
 uv run scripts/tripo/tripo.py get TASK_ID [--out DIR]
 ```
 
-Submit writes `_gen/tripo/<task_id>.json` at once. Then it waits, downloads to `_gen/tripo/<task_id>/`, and records sha256 per file. If it dies mid-wait, `get` resumes. It never resubmits. Credits come from the balance before and after the task.
+Submit writes `_gen/tripo/<task_id>.json` at once. Then it waits, downloads to `_gen/tripo/<task_id>/`, and records sha256 per file. If it dies mid-wait, `get` resumes. It never resubmits. Credits come from the task's own report when it gives one, otherwise from the balance before and after the task. `segment` defaults to segment v2 (beta), which runs on Tripo's v3 host and takes an uploaded mesh, so meshes generated elsewhere can be split; v1 takes only a Tripo task ID.
 
 ## Marcel next steps
 

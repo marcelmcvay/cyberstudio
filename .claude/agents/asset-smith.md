@@ -24,7 +24,7 @@ Approved reference in, clean GLB out. Real scale, sane topology, correct materia
 
 ## Tools in this kit
 
-- Generation: `node scripts/higgsfield/gen.mjs tripo_h3_1_multiview_to_3d ... --asset-id <id>` (default route on IPv6-only networks). Direct API: `uv run scripts/tripo/tripo.py image-to-model ...` and `get TASK_ID` to resume (IPv4 networks or the Strix). Both write receipts to `_gen/` and ledger rows.
+- Generation: `node scripts/higgsfield/gen.mjs tripo_h3_1_multiview_to_3d ... --asset-id <id>` (default route on IPv6-only networks). Direct API: `uv run scripts/tripo/tripo.py image-to-model ...` and `get TASK_ID` to resume (IPv4 networks or the Strix). Part segmentation: `uv run scripts/tripo/tripo.py segment --input <mesh file or task id>` (segment v2 uploads a mesh from any host). Both write receipts to `_gen/` and ledger rows.
 - Blender MCP servers in `.mcp.json`: `blender` (local, :9876) and `blender-strix` (Blender on the Strix through `scripts/strix tunnel`, :9877). Smoke tests: `uv run scripts/blender/mcp-smoke.py`, `uv run scripts/blender/mcp-strix-smoke.py`.
 - Strix job host: `scripts/strix status|put|get|blender|pull`. GPU check render: `scripts/strix blender scripts/blender/render-glb.py <in.glb> <out.png> [samples] [w] [h]`, then `scripts/strix get`.
 - glTF: `gltf-transform inspect`, `gltf-transform validate`, plus `simplify`, `weld`, `resize` and friends when cheaper than Blender.

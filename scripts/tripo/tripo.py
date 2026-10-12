@@ -13,8 +13,14 @@
 Both generators take --face-limit, --geometry-quality, --texture-quality, --no-pbr,
 --orientation and --smart-low-poly. Multiview slots follow Tripo: front, left, back,
 right, where left is the object's own left (the side on your right as you face it).
+  uv run scripts/tripo/tripo.py segment --input (TASK_ID|PATH|URL) [--model-version V]
+                                        [--granularity simple|balanced|detailed]
+                                        [--no-split-by-connectivity] [--ref-image PATH] [same --out ...]
   uv run scripts/tripo/tripo.py get TASK_ID [--out DIR]
 
+Segment v2 (v2.0-20260430, the default here) takes a Tripo task ID, a local mesh file
+(uploaded first, so meshes from other hosts work) or a public URL. Segment v1 takes a
+Tripo task ID only.
 Submit writes _gen/tripo/<task_id>.json right away. `get` resumes and downloads.
 It never resubmits. Spend goes through scripts/ledger.mjs (the single writer).
 """
@@ -33,6 +39,7 @@ from pathlib import Path
 
 KIT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL_VERSION = "v3.1-20260211"  # SDK 0.4.2 also offers P1-20260311, v3.0, v2.5, Turbo (image only)
+SEGMENT_V1, SEGMENT_V2 = "v1.0-20250506", "v2.0-20260430"  # v2 runs on the apiv3 host
 EXIT_NO_KEY = 2
 
 
@@ -166,16 +173,18 @@ def network_hint(error: str) -> str:
     return " (likely no IPv4 connection or DNS trouble on this network)"
 
 
-async def raw_task(client, task_id: str) -> dict | None:
+async def raw_task(client, task_id: str, v3: bool = False) -> dict | None:
     """Unparsed task JSON. The SDK Task dataclass drops unknown fields (possible credit info)."""
     try:
+        if v3:
+            return await client._v3_get_task(task_id)  # private, SDK 0.4.2
         resp = await client._impl._request("GET", f"/task/{task_id}")  # private, SDK 0.4.2
         return resp.get("data")
     except Exception:
         return None
 
 
-CREDIT_KEYS = ("consumed_credit", "credit", "credits", "cost", "consumed_credits", "credit_cost")
+CREDIT_KEYS = ("consumed_credit", "credits_consumed", "credit", "credits", "cost", "consumed_credits", "credit_cost")
 
 
 def credits_from_raw(raw: dict | None):
@@ -239,15 +248,16 @@ def ledger_append(rec: dict, asset_id: str, note: str) -> None:
 
 async def finish(client, TaskStatus, task_id: str, out: Path | None, asset_id: str, note: str) -> int:
     rec = read_record(task_id)
+    v3 = rec.get("api") == "v3"
     print(f"waiting on task {task_id} ...", file=sys.stderr)
-    task = await client.wait_for_task(task_id, verbose=sys.stderr.isatty())
+    task = await client.wait_for_task(task_id, verbose=sys.stderr.isatty(), use_v3=v3)
     rec["status"] = getattr(task.status, "value", str(task.status))
     rec["task"] = {
         "type": task.type, "progress": task.progress, "create_time": task.create_time,
         "error_code": task.error_code, "error_msg": task.error_msg,
         "output": {k: v for k, v in vars(task.output).items() if v is not None},
     }
-    raw = await raw_task(client, task_id)
+    raw = await raw_task(client, task_id, v3)
     if raw is not None:
         rec["raw_task"] = raw
     obs = credits_from_raw(raw)
@@ -380,6 +390,54 @@ async def cmd_multiview_to_model(args) -> int:
         return await finish(client, TaskStatus, task_id, Path(args.out) if args.out else None, args.asset_id, args.note)
 
 
+async def cmd_segment(args) -> int:
+    """Split a mesh into parts. v2 accepts a mesh from any host: a local file is uploaded first."""
+    src = args.input
+    local = Path(src).expanduser()
+    is_file = local.is_file()
+    v2 = args.model_version == SEGMENT_V2
+    if is_file and not v2:
+        die(f"segment {SEGMENT_V1} takes a Tripo task ID only. Use {SEGMENT_V2} for a mesh file.")
+    if args.ref_image and not Path(args.ref_image).expanduser().is_file():
+        die(f"ref image not found: {args.ref_image}")
+    opts = {}
+    if v2:
+        if args.granularity:
+            opts["segmentation_granularity"] = args.granularity
+        if args.no_split_by_connectivity:
+            opts["split_by_connectivity"] = False
+        if args.ref_image:
+            opts["ref_image"] = str(Path(args.ref_image).expanduser().resolve())
+    elif args.granularity or args.no_split_by_connectivity or args.ref_image:
+        die(f"--granularity, --no-split-by-connectivity and --ref-image need {SEGMENT_V2}.")
+    if args.dry_run:
+        print(json.dumps({
+            "would_call": "TripoClient.mesh_segmentation",
+            "input": str(local.resolve()) if is_file else src, "upload_first": is_file,
+            "model_version": args.model_version, "options": opts,
+            "out": str(Path(args.out).resolve()) if args.out else str(project_root() / "_gen" / "tripo" / "<task_id>"),
+            "asset_id": args.asset_id or None,
+        }, indent=2))
+        return 0
+    key = need_key()
+    _, TripoClient, TaskStatus = import_sdk()
+    async with TripoClient(api_key=key) as client:
+        before = await safe_balance(client)
+        inp = await client._v3_upload_file(str(local.resolve())) if is_file else src  # private, SDK 0.4.2
+        task_id = await client.mesh_segmentation(inp, model_version=args.model_version, **opts)
+        rec = {
+            "task_id": task_id, "tool": "tripo", "kind": "mesh_segmentation", "api": "v3" if v2 else "v2",
+            "model_version": args.model_version, "options": opts, "input": src,
+            "asset_id": args.asset_id or "", "note": args.note or "", "submitted": now(),
+            "status": "submitted", "balance_before": before,
+        }
+        if is_file:
+            rec["input"] = {"path": str(local.resolve()), "sha256": sha256(local), "file_token": inp}
+        write_record(task_id, rec)  # immediately, so `get` can resume
+        print(f"submitted {task_id}. record {record_path(task_id)}", file=sys.stderr)
+        return await finish(client, TaskStatus, task_id, Path(args.out) if args.out else None, args.asset_id, args.note)
+
+
 async def cmd_get(args) -> int:
     key = need_key()
     _, TripoClient, TaskStatus = import_sdk()
@@ -410,12 +468,22 @@ def main() -> int:
         g_.add_argument("--smart-low-poly", action="store_true")
         g_.add_argument("--note", default="")
         g_.add_argument("--dry-run", action="store_true")
+    sg = sub.add_parser("segment", help="split a mesh into parts, wait, download, ledger")
+    sg.add_argument("--input", required=True, help="Tripo task ID, local mesh file or public URL")
+    sg.add_argument("--model-version", default=SEGMENT_V2, choices=[SEGMENT_V1, SEGMENT_V2])
+    sg.add_argument("--granularity", choices=["simple", "balanced", "detailed"])
+    sg.add_argument("--no-split-by-connectivity", action="store_true")
+    sg.add_argument("--ref-image")
+    sg.add_argument("--out")
+    sg.add_argument("--asset-id", default="")
+    sg.add_argument("--note", default="")
+    sg.add_argument("--dry-run", action="store_true")
     g = sub.add_parser("get", help="resume a task and download. never resubmits")
     g.add_argument("task_id")
     g.add_argument("--out")
     args = p.parse_args()
     fn = {"check": cmd_check, "image-to-model": cmd_image_to_model,
-          "multiview-to-model": cmd_multiview_to_model, "get": cmd_get}[args.cmd]
+          "multiview-to-model": cmd_multiview_to_model, "segment": cmd_segment, "get": cmd_get}[args.cmd]
     try:
         return asyncio.run(fn(args))
     except KeyboardInterrupt:

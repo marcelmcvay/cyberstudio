@@ -272,6 +272,16 @@ fn main() {
                                 }
                             }
                         },
+                        "badge" => {
+                            // Dock badge for chats that need the person; cleared at zero.
+                            let count = event["count"].as_i64().unwrap_or(0);
+                            let handle = app_handle.clone();
+                            let _ = app_handle.run_on_main_thread(move || {
+                                if let Some(window) = handle.get_webview_window("chats").or_else(|| handle.get_webview_window("workspace")) {
+                                    let _ = window.set_badge_count(if count > 0 { Some(count) } else { None });
+                                }
+                            });
+                        },
                         "recycle-file" => {
                             if let Some(file) = event["path"].as_str() {
                                 if let Some(window) = app_handle.get_webview_window("workspace") {

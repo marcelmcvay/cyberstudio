@@ -35,6 +35,13 @@ export function nativeActivity(record, agent) {
 // Only read records appended after this managed session starts. These files belong
 // to the native CLI; MR-MAK never modifies them or replaces the user's hooks.
 export function tailNativeFile(file, agent, onEvent, from = 0) {
+  return tailLines(file, line => {
+    try { const event = nativeActivity(JSON.parse(line), agent); if (event) onEvent(event); } catch { /* Partial records are ignored, never guessed. */ }
+  }, from);
+}
+
+// Follow complete lines appended to a file. A missing file is retried.
+export function tailLines(file, onLine, from = 0) {
   let offset = from, partial = '', closed = false, reading = false, decoder = new StringDecoder('utf8');
   const tick = async () => {
     if (closed || reading) return;
@@ -51,11 +58,9 @@ export function tailNativeFile(file, agent, onEvent, from = 0) {
         offset += bytesRead;
         const lines = (partial + decoder.write(buffer.subarray(0, bytesRead))).split('\n');
         partial = lines.pop() || '';
-        for (const line of lines) {
-          try { const event = nativeActivity(JSON.parse(line), agent); if (event && !closed) onEvent(event); } catch { /* Partial records are ignored, never guessed. */ }
-        }
+        for (const line of lines) if (!closed && line.trim()) onLine(line);
       } finally { await handle.close(); }
-    } catch { /* CLI may not have created its transcript yet. */ }
+    } catch { /* CLI may not have created its file yet. */ }
     finally { reading = false; }
   };
   const timer = setInterval(tick, 400); timer.unref(); tick();

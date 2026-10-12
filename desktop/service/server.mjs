@@ -140,6 +140,9 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
   coordinator.on('error-detail', error => broadcast('service-error', { error }));
   sessions.on('session', session => { broadcast('session', { session }); integrations.publish('session', { event: session.status, session }).catch(() => {}); });
   sessions.on('screen-cleared', ({ id }) => broadcast('screen-cleared', { id }));
+  // macOS Dock badge: chats waiting on the person or holding an unread result (C-29).
+  sessions.on('attention-count', count => native({ type: 'badge', count }));
+  if (sessions.attentionCount > 0) native({ type: 'badge', count: sessions.attentionCount });
   sessions.on('service-error', error => broadcast('service-error', { error: publicError(error) }));
   sessions.on('output', output => {
     for (const ws of clients) {

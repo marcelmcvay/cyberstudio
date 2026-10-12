@@ -43,17 +43,27 @@ function strixConfigured(env = process.env) {
 // The Strix's SSH shell is Windows PowerShell 5.1. Map the local working folder
 // to the same path under the remote home (the kit and projects are cloned there
 // with the same layout) and fall back to the remote home.
+export const psQuote = value => "'" + String(value).replaceAll("'", "''") + "'";
+export function strixTarget(cwd, home = os.homedir()) {
+  const rel = cwd && path.relative(home, cwd);
+  return rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? `Join-Path $HOME ${psQuote(rel.split(path.sep).join('\\'))}` : '$HOME';
+}
+
+// The first line names the remote folder actually used; the service reads it
+// for the context bar (C-28).
+export const STRIX_FOLDER_LINE = /\[CyberStudio\] (Strix folder|Folder not found on Strix, using home): (.+?)\s*$/;
+
 export function strixScript(cwd, claudeArgs, resumeId, nativeId) {
-  const quote = value => "'" + String(value).replaceAll("'", "''") + "'";
-  const rel = cwd && path.relative(os.homedir(), cwd);
-  const target = rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? `Join-Path $HOME ${quote(rel.split(path.sep).join('\\'))}` : '$HOME';
-  const args = claudeArgs.map(quote).join(' ');
+  const args = claudeArgs.map(psQuote).join(' ');
   // A session closed before its first prompt has nothing to resume: start it fresh under the same ID.
   const run = resumeId
-    ? `claude --resume ${quote(resumeId)} ${args}; if ($LASTEXITCODE -ne 0) { claude --session-id ${quote(resumeId)} ${args} }`
-    : `claude ${nativeId ? `--session-id ${quote(nativeId)} ` : ''}${args}`;
-  return `$d = ${target}; if (Test-Path $d) { Set-Location $d } else { Set-Location $HOME }; ${run}`;
+    ? `claude --resume ${psQuote(resumeId)} ${args}; if ($LASTEXITCODE -ne 0) { claude --session-id ${psQuote(resumeId)} ${args} }`
+    : `claude ${nativeId ? `--session-id ${psQuote(nativeId)} ` : ''}${args}`;
+  return `$d = ${strixTarget(cwd)}; if (Test-Path $d) { Set-Location $d; Write-Host ('[CyberStudio] Strix folder: ' + (Get-Location).Path) } else { Set-Location $HOME; Write-Host ('[CyberStudio] Folder not found on Strix, using home: ' + (Get-Location).Path) }; ${run}`;
 }
+
+// Keepalive: a dropped Tailscale link is noticed in about 30 seconds (C-04).
+export const STRIX_SSH_OPTIONS = ['-o', 'ServerAliveInterval=10', '-o', 'ServerAliveCountMax=2', '-o', 'ConnectTimeout=15'];
 
 // Resolve the real Codex binary when available so JSON-RPC does not pass through a shell.
 export function codexBinary(env = process.env) {
@@ -78,13 +88,13 @@ export function codexBinary(env = process.env) {
   throw new Error('Codex CLI is not installed. Install it and sign in once to use CyberStudio.');
 }
 
-export function terminalCommand(agent, { bypass = false, resumeId, nativeId, effort, opencodeMajor = 1, cwd } = {}) {
+export function terminalCommand(agent, { bypass = false, resumeId, nativeId, effort, opencodeMajor = 1, cwd, claudeSettings, codexArgs } = {}) {
   if (!AGENTS.some(item => item.id === agent)) throw new Error('Unknown agent');
   if (agent === 'strix') {
     const ssh = commandPath('ssh');
     if (!ssh || !strixConfigured()) throw new Error('Add a "Host strix" entry to ~/.ssh/config to use Claude on Strix.');
     const claudeArgs = [...(bypass ? ['--dangerously-skip-permissions'] : []), ...(effort ? ['--effort', effort] : [])];
-    return { file: ssh, args: ['-tt', '-o', 'ServerAliveInterval=30', '-o', 'ConnectTimeout=15', STRIX_HOST, strixScript(cwd, claudeArgs, resumeId, nativeId)] };
+    return { file: ssh, args: ['-tt', ...STRIX_SSH_OPTIONS, STRIX_HOST, strixScript(cwd, claudeArgs, resumeId, nativeId)] };
   }
   const command = agent === 'shell' ? shellCommand() : { file: commandPath(AGENTS.find(item => item.id === agent).command), args: [] };
   if (!command || !command.file) throw new Error(`${agent} is not installed on this computer`);
@@ -96,11 +106,14 @@ export function terminalCommand(agent, { bypass = false, resumeId, nativeId, eff
     args.push('--no-alt-screen');
     if (bypass) args.push('--dangerously-bypass-approvals-and-sandbox');
     if (effort) args.push('-c', `model_reasoning_effort="${effort}"`);
+    if (codexArgs) args.push(...codexArgs);
   } else if (agent === 'claude') {
     if (resumeId) args.push('--resume', resumeId);
     else if (nativeId) args.push('--session-id', nativeId);
     if (bypass) args.push('--dangerously-skip-permissions');
     if (effort) args.push('--effort', effort);
+    // Per-chat status hooks, merged with the user's own settings, never written into them.
+    if (claudeSettings) args.push('--settings', claudeSettings);
   } else if (agent === 'kimi') {
     if (resumeId) args.push('--session', resumeId);
     if (bypass) args.push('--yolo');

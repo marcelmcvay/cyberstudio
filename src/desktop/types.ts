@@ -9,6 +9,8 @@ export interface ChatSession {
   activity: 'idle' | 'working' | 'waiting'; unread: boolean; completionVersion: number
   tabOrder: number; tabColor: string | null
   open: boolean; pinned: boolean; updatedAt: string; preview?: string; hasConversation?: boolean; restoreError?: string | null
+  // Status details: Strix connect phase, what the waiting chat needs, the remote folder used, the raw ssh failure.
+  connecting?: boolean; waitingText?: string | null; remoteCwd?: string | null; remoteFallback?: boolean; exitDetail?: string | null
 }
 export interface Notice { id: string; sessionId: string; name: string; kind: string; text: string; at: string }
 export interface Operation { id: string; text: string; status: string; result?: string; at: string; images?: string[] }

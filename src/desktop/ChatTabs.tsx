@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { AgentInfo, ChatSession } from './types'
 import { api, reportError } from './client'
-import { chatActivityLabel } from './chatActivity'
+import { chatActivityLabel, chatBadgeText, chatState } from './chatActivity'
 import { Icon } from './Icons'
 import SessionLogo from './SessionLogo'
 
@@ -70,10 +70,10 @@ export default function ChatTabs({ items, selectedId, agents, choose, close }: {
   }
   const dragged = items.find(item => item.id === dragging?.id)
   return <div ref={strip} className={`chat-tabs ${dragging ? 'is-reordering' : ''}`} role="tablist" aria-label="Agent chats">
-    {items.map((item, index) => <div key={item.id} data-chat-tab={item.id} className={`chat-tab ${selectedId === item.id ? 'selected' : ''} ${item.tabColor ? 'has-color' : ''} ${dragging?.id === item.id ? 'dragging' : ''} ${target?.id === item.id ? `drop-${target.position}` : ''}`} style={{ '--tab-accent': item.tabColor || '#e2a7a0' } as React.CSSProperties}>
+    {items.map((item, index) => <div key={item.id} data-chat-tab={item.id} className={`chat-tab tab-${chatState(item)} ${selectedId === item.id ? 'selected' : ''} ${item.tabColor ? 'has-color' : ''} ${dragging?.id === item.id ? 'dragging' : ''} ${target?.id === item.id ? `drop-${target.position}` : ''}`} style={{ '--tab-accent': item.tabColor || '#e2a7a0' } as React.CSSProperties}>
       <button role="tab" aria-selected={selectedId === item.id} tabIndex={selectedId === item.id ? 0 : -1} onKeyDown={event => keys(event, index)} onClick={event => { if (!suppressClick.current || event.detail === 0) choose(item.id) }} onPointerDown={event => begin(event, item)} onPointerMove={move} onPointerUp={finish} onPointerCancel={clear} onLostPointerCapture={clear}
         className="chat-tab-select" aria-label={`${item.name} · ${chatActivityLabel(item)}`} title={`${agents.find(a => a.id === item.agent)?.label} · ${item.name}\n${chatActivityLabel(item)}\nDrag to reorder ${item.pinned ? 'pinned' : 'unpinned'} tabs · Delete to close\n${item.cwd}`}>
-        <span style={{ color: agents.find(a => a.id === item.agent)?.color }}><SessionLogo session={item} /></span><span className="chat-tab-name">{item.name}</span>{item.pinned && <span className="tab-pinned" title="Pinned in History"><Icon name="pin" size={11} /></span>}
+        <span style={{ color: agents.find(a => a.id === item.agent)?.color }}><SessionLogo session={item} /></span><span className="chat-tab-name">{item.name}</span>{chatBadgeText(item) && <span className={`chat-tab-badge badge-${chatState(item)}`}>{chatBadgeText(item)}</span>}{item.pinned && <span className="tab-pinned" title="Pinned in History"><Icon name="pin" size={11} /></span>}
       </button>
       <button className="chat-tab-close" tabIndex={-1} onClick={() => closeTab(item.id)} aria-label={`Close ${item.name}`} title="Close tab · keep in History"><Icon name="close" size={12} /></button>
     </div>)}

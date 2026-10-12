@@ -16,10 +16,10 @@ Newest first. Date, decision, who decided, why.
 
 ## 2026-10-08
 
-- **VEC project repo is `octopd/vec-factory-proto`, private, in the `octopd` org.** Marcel. Lives at `~/cyberstudio-projects/vec-factory-proto` and is the kit's `CYBERSTUDIO_PROJECT_ROOT`. Large files through Git LFS. `Octo-Marcel/VEC-Factory-Proto` is not used.
+- **The pilot project lives in its own private repo, outside the kit.** Marcel. It sits under `~/cyberstudio-projects/` and is the kit's `CYBERSTUDIO_PROJECT_ROOT`. Large files through Git LFS.
 - **App renamed to CyberStudio, assistant to Cy.** Marcel. Visible names only. Internal IDs (`com.mrmak.workspace`, `MRMAK_*`) and MIT attribution stay.
 - **M1 meshes go through Higgsfield's hosted Tripo (`tripo_h3_1_image_to_3d`), not the direct Tripo API.** Marcel's network has no IPv4 route and the Tripo API is IPv4-only. Higgsfield reaches over IPv6. 9 credits standard, 18 detailed (quoted 2026-10-08). Direct client `scripts/tripo/tripo.py` stays for the ROG or an IPv4 network. Fallback: Tripo web app (IPv6 via Cloudflare), manual import through `inbox/`. Same model family, so the mesh pipeline is unchanged.
-- **Kit repo `marcelmcvay/cyberstudio` is public.** Marcel. Workspace setup only. No client material, no keys. VEC material lives in a separate private OCTO repo.
+- **Kit repo `marcelmcvay/cyberstudio` is public.** Marcel. Workspace setup only. No client material, no keys. Project material lives in separate private repos.
 - **Blender MCP pinned to `mcp-for-blender@2.1.9`, add-on vendored at the matching commit.** Producer. The PyPI package was renamed from `blender-mcp`. The add-on in `vendor/blender-mcp/` is byte-identical to the one bundled in 2.1.9 (protocol 13). Upgrades are deliberate, not drift.
 - **Blender MCP telemetry off.** Producer. `BLENDER_MCP_DISABLE_TELEMETRY=true` in `.mcp.json`. The add-on's data-sharing consent stays at its default (off). Client work flows through this server.
 - **Blender MCP registered in the kit `.mcp.json`, not via the vendor's `setup` installer.** Producer. The installer edits global client configs. The kit should carry its own config.
@@ -30,13 +30,13 @@ Newest first. Date, decision, who decided, why.
 
 ## 2026-10-07 (from the brief, Marcel)
 
-- Reusable kit first, then the 3D profile, then the VEC project.
+- Reusable kit first, then the 3D profile, then the pilot project.
 - Fork Mr. Mak. Keep its MIT attribution.
 - Asset viewer is a local web dashboard. Not Obsidian.
 - Large files in Git LFS. Blender driven through Blender MCP.
 - Generation: Higgsfield and Tripo. Midjourney is manual import through the inbox.
 - $300/month soft cap. Warn at 80%. Never hard-block.
 - Engine fork reopened. Pipeline stays glTF-neutral up to the Blender scene. Engines install on the ROG.
-- Kit on Marcel's personal GitHub. `vec-factory` on the OCTO org. Marcel creates both.
-- M2 starts with discrete (motor assembly).
+- Kit on Marcel's personal GitHub. The pilot project in a private org repo. Marcel creates both.
+- M2 starts with a discrete-manufacturing scene.
 - Voice: Wispr Flow or typed text into the composer. Mr. Mak voice deferred (needs an OpenAI API key).

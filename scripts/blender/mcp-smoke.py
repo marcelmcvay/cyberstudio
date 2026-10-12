@@ -25,7 +25,7 @@ BUILD = textwrap.dedent(f"""
     bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, 0.5))
     cube = bpy.context.active_object
     cube.name = "cs_smoke_cube"
-    mat = bpy.data.materials.new("cs_velotic_orange")
+    mat = bpy.data.materials.new("cs_smoke_orange")
     mat.use_nodes = True
     mat.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (1.0, 0.0742, 0.0, 1.0)
     cube.data.materials.append(mat)

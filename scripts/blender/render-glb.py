@@ -1,4 +1,4 @@
-"""Render a turntable-style still of a GLB on the GPU (Cycles, OptiX if present).
+"""Render a turntable-style still of a GLB on the GPU (Cycles: OptiX, CUDA or Metal if present).
 
 blender -b --factory-startup --python render-glb.py -- <in.glb> <out.png> [samples] [width] [height]
 Engine-neutral check render: three-quarter camera framed on the bounds, warm key,
@@ -37,7 +37,7 @@ scene = bpy.context.scene
 scene.render.engine = "CYCLES"
 prefs = bpy.context.preferences.addons["cycles"].preferences
 device = "CPU"
-for kind in ("OPTIX", "CUDA"):
+for kind in ("OPTIX", "CUDA", "METAL"):
     try:
         prefs.compute_device_type = kind
         prefs.get_devices()

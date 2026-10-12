@@ -7,6 +7,12 @@
   uv run scripts/tripo/tripo.py check
   uv run scripts/tripo/tripo.py image-to-model --image PATH [--out DIR] [--asset-id ID]
                                                [--model-version V] [--note TEXT] [--dry-run]
+  uv run scripts/tripo/tripo.py multiview-to-model --front PATH [--left PATH] [--back PATH]
+                                               [--right PATH] [same options]
+
+Both generators take --face-limit, --geometry-quality, --texture-quality, --no-pbr,
+--orientation and --smart-low-poly. Multiview slots follow Tripo: front, left, back,
+right, where left is the object's own left (the side on your right as you face it).
   uv run scripts/tripo/tripo.py get TASK_ID [--out DIR]
 
 Submit writes _gen/tripo/<task_id>.json right away. `get` resumes and downloads.
@@ -26,7 +32,7 @@ import sys
 from pathlib import Path
 
 KIT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_MODEL_VERSION = "v2.5-20250123"  # SDK 0.4.2 default for image_to_model
+DEFAULT_MODEL_VERSION = "v3.1-20260211"  # SDK 0.4.2 also offers P1-20260311, v3.0, v2.5, Turbo (image only)
 EXIT_NO_KEY = 2
 
 
@@ -305,7 +311,7 @@ async def cmd_image_to_model(args) -> int:
         print(json.dumps({
             "would_call": "TripoClient.image_to_model",
             "image": str(image.resolve()),
-            "model_version": args.model_version,
+            "model_version": args.model_version, "options": gen_options(args),
             "out": str(Path(args.out).resolve()) if args.out else str(project_root() / "_gen" / "tripo" / "<task_id>"),
             "asset_id": args.asset_id or None,
             "ledger": str(project_root() / "ledger" / "spend.csv"),
@@ -315,13 +321,59 @@ async def cmd_image_to_model(args) -> int:
     _, TripoClient, TaskStatus = import_sdk()
     async with TripoClient(api_key=key) as client:
         before = await safe_balance(client)
-        task_id = await client.image_to_model(image=str(image), model_version=args.model_version)
+        opts = gen_options(args)
+        task_id = await client.image_to_model(image=str(image), model_version=args.model_version, **opts)
         rec = {
             "task_id": task_id, "tool": "tripo", "kind": "image_to_model",
-            "model_version": args.model_version, "image": str(image.resolve()),
+            "model_version": args.model_version, "options": opts, "image": str(image.resolve()),
             "image_sha256": sha256(image), "asset_id": args.asset_id or "",
             "note": args.note or "", "submitted": now(), "status": "submitted",
             "balance_before": before,
+        }
+        write_record(task_id, rec)  # immediately, so `get` can resume
+        print(f"submitted {task_id}. record {record_path(task_id)}", file=sys.stderr)
+        return await finish(client, TaskStatus, task_id, Path(args.out) if args.out else None, args.asset_id, args.note)
+
+
+def gen_options(args) -> dict:
+    """Generation settings shared by image and multiview tasks. Only what the user set, plus PBR."""
+    opts = {"pbr": not args.no_pbr}
+    for k in ("face_limit", "geometry_quality", "texture_quality", "orientation"):
+        v = getattr(args, k)
+        if v is not None:
+            opts[k] = v
+    if args.smart_low_poly:
+        opts["smart_low_poly"] = True
+    return opts
+
+
+async def cmd_multiview_to_model(args) -> int:
+    slots = {"front": args.front, "left": args.left, "back": args.back, "right": args.right}
+    paths = {k: Path(v).expanduser() for k, v in slots.items() if v}
+    for k, v in paths.items():
+        if not v.is_file():
+            die(f"{k} image not found: {v}")
+    images = [str(paths[k].resolve()) if k in paths else None for k in slots]
+    opts = gen_options(args)
+    if args.dry_run:
+        print(json.dumps({
+            "would_call": "TripoClient.multiview_to_model",
+            "images": dict(zip(slots, images)), "model_version": args.model_version, "options": opts,
+            "out": str(Path(args.out).resolve()) if args.out else str(project_root() / "_gen" / "tripo" / "<task_id>"),
+            "asset_id": args.asset_id or None,
+        }, indent=2))
+        return 0
+    key = need_key()
+    _, TripoClient, TaskStatus = import_sdk()
+    async with TripoClient(api_key=key) as client:
+        before = await safe_balance(client)
+        task_id = await client.multiview_to_model(images=images, model_version=args.model_version, **opts)
+        rec = {
+            "task_id": task_id, "tool": "tripo", "kind": "multiview_to_model",
+            "model_version": args.model_version, "options": opts,
+            "images": {k: {"path": str(v.resolve()), "sha256": sha256(v)} for k, v in paths.items()},
+            "asset_id": args.asset_id or "", "note": args.note or "", "submitted": now(),
+            "status": "submitted", "balance_before": before,
         }
         write_record(task_id, rec)  # immediately, so `get` can resume
         print(f"submitted {task_id}. record {record_path(task_id)}", file=sys.stderr)
@@ -342,16 +394,28 @@ def main() -> int:
     sub.add_parser("check", help="key present, SDK imports, balance if key")
     i2m = sub.add_parser("image-to-model", help="submit an image, wait, download, ledger")
     i2m.add_argument("--image", required=True)
-    i2m.add_argument("--out")
-    i2m.add_argument("--asset-id", default="")
-    i2m.add_argument("--model-version", default=DEFAULT_MODEL_VERSION)
-    i2m.add_argument("--note", default="")
-    i2m.add_argument("--dry-run", action="store_true")
+    mv = sub.add_parser("multiview-to-model", help="submit front/left/back/right views, wait, download, ledger")
+    mv.add_argument("--front", required=True)
+    for slot in ("left", "back", "right"):
+        mv.add_argument(f"--{slot}")
+    for g_ in (i2m, mv):
+        g_.add_argument("--out")
+        g_.add_argument("--asset-id", default="")
+        g_.add_argument("--model-version", default=DEFAULT_MODEL_VERSION)
+        g_.add_argument("--face-limit", type=int)
+        g_.add_argument("--geometry-quality", choices=["standard", "detailed"])
+        g_.add_argument("--texture-quality", choices=["standard", "detailed"])
+        g_.add_argument("--orientation", choices=["default", "align_image"])
+        g_.add_argument("--no-pbr", action="store_true")
+        g_.add_argument("--smart-low-poly", action="store_true")
+        g_.add_argument("--note", default="")
+        g_.add_argument("--dry-run", action="store_true")
     g = sub.add_parser("get", help="resume a task and download. never resubmits")
     g.add_argument("task_id")
     g.add_argument("--out")
     args = p.parse_args()
-    fn = {"check": cmd_check, "image-to-model": cmd_image_to_model, "get": cmd_get}[args.cmd]
+    fn = {"check": cmd_check, "image-to-model": cmd_image_to_model,
+          "multiview-to-model": cmd_multiview_to_model, "get": cmd_get}[args.cmd]
     try:
         return asyncio.run(fn(args))
     except KeyboardInterrupt:

@@ -39,5 +39,13 @@ fi
 NODE="$KIT/src-tauri/target/debug/runtime/node"
 if ! "$NODE" -e 0 2>/dev/null; then rm -f "$NODE" && cp "$KIT/.cache/desktop-runtime/node" "$NODE"; fi
 
+# Refresh the project's copies of the kit's Help and report styles, unless the
+# project edited them (scripts/shared/sync-shared.mjs keeps local edits).
+if [ "$PROJECT" != "$KIT" ]; then
+  RUN_NODE="$NODE"; "$RUN_NODE" -e 0 2>/dev/null || RUN_NODE="$(command -v node || true)"
+  if [ -n "$RUN_NODE" ]; then "$RUN_NODE" "$KIT/scripts/shared/sync-shared.mjs" "$KIT" "$PROJECT" || echo "Could not refresh workspace/_shared; continuing." >&2
+  else echo "Node not found; workspace/_shared not refreshed." >&2; fi
+fi
+
 nohup "$BIN" --repo "$PROJECT" >/dev/null 2>&1 &
 echo "CyberStudio started on $PROJECT"

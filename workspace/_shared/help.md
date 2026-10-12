@@ -30,6 +30,82 @@ Workspace MCP inspector.
 5. Keep related revisions as tabs in the same card. Archive the card when you no
    longer need it in the active list. Archiving a card preserves its files.
 
+## Review an asset
+
+1. Open the card, then **Properties** in the right rail. It lists the assets
+   used by that card. **Show all assets** widens it to the project.
+2. Open an asset row to see its preview, provenance, mesh numbers and files.
+   Click a file to preview it.
+3. Set the status under **Review**: draft, review, approved or superseded. The
+   current status is highlighted. Approving records who approved it and when.
+4. Add a note in the box under the status buttons. **Cmd+Enter** saves it.
+   Notes are kept in the asset's `asset.json` sidecar beside its files.
+5. Changed your mind? Click the previous status. Each change is written to the
+   sidecar straight away; the project's Git history keeps earlier versions.
+
+## Read spend
+
+**Spend this month** in the readout strip is the project's paid generation
+total for the current month, read from `ledger/`, against the monthly cap.
+It turns amber at 80 percent of the cap and red above it. Hover it for the time
+it was read and the number of paid jobs. While the local service is
+disconnected it shows **stale** and keeps the last value.
+
+**Spend** in Properties is different. It adds up the costs recorded on the
+assets in view. Jobs that never produced a linked asset count in the monthly
+total but not there, so the two figures can differ.
+
+## 3D viewer keys and mouse
+
+Both 3D viewers (side-by-side compare and the placed scene) use one map.
+Click the canvas first so a keyboard control does not keep the focus.
+
+| Input | Action |
+| --- | --- |
+| Drag | Orbit |
+| Right-drag | Pan |
+| Wheel or pinch | Zoom |
+| 1 to 8 | Shading: Wireframe, Clay, Normals, Textured, Base color, Normal map, Roughness, Metalness |
+| Shift+1 to Shift+9 | Scene camera presets, in toolbar order |
+| R | Reset the view |
+| Space | Spin |
+| Left and right arrows | Previous or next test (compare) |
+| S | Lock both cameras together (compare) |
+| I | Show the reference image (compare) |
+
+## Workspace shortcuts
+
+| Key | Action |
+| --- | --- |
+| / | Search cards |
+| [ | Hide or show the card menu |
+| Escape | Close a preview, this help, an enlarged image or the Cy panel |
+| Cmd+S | Save while editing Markdown |
+| Cmd+Delete or Delete | Move the selected file in Files to the Trash |
+
+Right-click a file in **Files** for Reveal in Finder, Move to Trash and Copy
+path. After a move, **Undo** in the corner puts the item back.
+
+## Chats shortcuts
+
+| Key | Action |
+| --- | --- |
+| Ctrl+Shift+T | New chat |
+| Ctrl+Shift+P | Find a chat |
+| Ctrl+Shift+H | History |
+| Ctrl+Shift+W | Close the current chat |
+| Ctrl+Tab, Ctrl+Shift+Tab | Next or previous chat |
+| Option+1 to Option+9 | Go to chat 1 to 9 |
+| Escape | Close the open menu, Find, History or New chat |
+| Cmd+K | Clear the terminal scrollback. The conversation is unchanged |
+| Cmd+C, or Ctrl+C in an agent chat | Copy selected text. It never interrupts the agent |
+| Ctrl+C in Shell | Interrupt, as in any terminal. Ctrl+Shift+C copies |
+| Cmd+V | Paste text or a clipboard screenshot |
+| Delete on a focused tab | Close that tab |
+
+See the menu bar for the full list. On Windows, use Ctrl where this page says
+Cmd and Alt where it says Option.
+
 ## Two windows, one project
 
 **Chats** contains real terminal sessions for your chosen CLI agents. **Workspace**
@@ -44,8 +120,8 @@ actions. Conversation recovery also depends on the selected CLI's native history
 ## Files and previews
 
 **Files** shows the actual project folders. Main folders is a focused view;
-All files shows the wider tree. Hover a folder to reveal its Finder (macOS) or
-Explorer (Windows) shortcut.
+All files shows the wider tree. Hover a row for **Move to Trash**, and a folder
+for its Finder shortcut (Explorer on Windows).
 Select a file to preview it. Images can be enlarged and downloaded, and Markdown
 opens with **Preview** and **Edit** modes. Save only when you want to change the file.
 
@@ -63,9 +139,11 @@ image saves it in `inbox/` and inserts that path. This gives the agent an input;
 it does not automatically publish or upload it to a service.
 
 Within Files, dragging a file to another project folder moves it; dropping it
-back in the same place does nothing. Forward Delete (Fn+Delete on a Mac laptop)
-moves a selected item to the Trash, or to the Recycle Bin on Windows. Use Finder
-or Explorer for folder moves and other full filesystem operations.
+back in the same place does nothing. Cmd+Delete, forward Delete, the hover
+button or the right-click menu moves an item to the Trash. **Undo** brings it
+back for a few seconds. Until then it waits in the project's `.trash/` folder,
+which is never committed. Then it goes to the Trash, where Finder can still put
+it back. Use Finder for folder moves and other full filesystem operations.
 
 ## Skills and MCP: what is the difference?
 
@@ -99,18 +177,7 @@ Voice uses the configured API connection. Terminal agents use their own installe
 CLI and authentication; provider generation services use their own accounts.
 The current choices are visible in Settings and in the agent or provider setup.
 
-## Useful controls
-
-| Windows | macOS | Behavior |
-| --- | --- | --- |
-| Ctrl+C in an agent chat | Cmd+C or Ctrl+C in an agent chat | Copy selected terminal text; it does not interrupt the agent |
-| Ctrl+Shift+C | Cmd+C | Copy selected terminal text |
-| Ctrl+C in PowerShell | Ctrl+C in Shell | Normal shell interrupt behavior |
-| Ctrl+V in a chat | Cmd+V in a chat | Paste text or a clipboard screenshot |
-| Ctrl+S while editing Markdown | Cmd+S while editing Markdown | Save the document |
-| Escape in an image preview | Escape in an image preview | Close the enlarged image |
-| Optional Win-key recall | Not available | Bring back open CyberStudio windows; configurable in Settings |
-| Ctrl+Esc | Not available | Open Windows Start |
+## Settings
 
 Settings also contains terminal text size and appearance, the default agent,
 new-chat permission defaults and voice choices. A CLI permission setting affects

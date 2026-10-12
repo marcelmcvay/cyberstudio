@@ -7,7 +7,7 @@ import { parse as parseEnv } from 'dotenv';
 import { Sessions } from './sessions.mjs';
 import { Coordinator } from './coordinator.mjs';
 import { Files, serveFile } from './files.mjs';
-import { importFile, dragFiles, moveFile, recyclePath, MAX_FILE_BYTES } from './file-transfers.mjs';
+import { importFile, dragFiles, moveFile, recyclePath, TrashStage, MAX_FILE_BYTES } from './file-transfers.mjs';
 import { inventory } from './agents.mjs';
 import { Attachments, attachmentText, MAX_IMAGE_BYTES } from './attachments.mjs';
 import { intake, isInbox } from './intake.mjs';
@@ -31,6 +31,8 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
   repo = await realpath(repo);
   stateDir ||= path.join(repo, '.mrmak');
   const files = new Files(repo);
+  const trash = new TrashStage(repo, { native });
+  trash.sweep().catch(() => {});
   const attachments = new Attachments(repo);
   const library = new ContextLibrary(repo);
   const assets = new Assets(repo);
@@ -265,8 +267,16 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
         }
         if (method === 'POST' && url.pathname === '/api/files/recycle') {
           const file = await recyclePath(data.path, repo);
+          const staged = await trash.stage(file);
+          if (staged) { broadcast('workspace-changed', {}); return json(response, 200, { staged: true, ...staged }); }
           native({ type: 'recycle-file', path: file });
           return json(response, 200, { requested: true, path: file });
+        }
+        if (method === 'POST' && url.pathname === '/api/files/restore') {
+          if (typeof data.id !== 'string') throw Object.assign(new Error('Choose an item to restore.'), { status: 400 });
+          const result = await trash.restore(data.id);
+          broadcast('workspace-changed', {});
+          return json(response, 200, result);
         }
         if (method === 'GET' && url.pathname === '/api/preview') return json(response, 200, await files.preview(url.searchParams.get('path') || ''));
         if (method === 'POST' && url.pathname === '/api/files/markdown') {
@@ -347,7 +357,7 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
       if (!info.isFile()) throw new Error('File not found');
       await serveFile(request, response, file, info, {
         'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY',
-        'Content-Security-Policy': `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: ${files.origin}; media-src 'self' blob: ${files.origin}; connect-src 'self' blob: ws://127.0.0.1:* ${files.origin}; frame-src ${files.origin}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'`,
+        'Content-Security-Policy': `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: ${files.origin}; media-src 'self' blob: ${files.origin}; connect-src 'self' blob: ws://127.0.0.1:* ${files.origin}; frame-src ${files.origin}; object-src 'none'; base-uri 'self'; frame-ancestors 'none'`,
       });
     } catch (error) { if (!response.headersSent) json(response, error.status || 400, { error: publicError(error) }); }
   });
@@ -393,7 +403,7 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
     urls: { workspace: `${origin}/?desktop=1&surface=workspace&token=${token}`, chats: `${origin}/?desktop=1&surface=chats&token=${token}` },
       nativeMessage: event => nativeSettings.receive(event),
       async close() {
-        if (closing) return; closing = true; mcp.close(); nativeSettings.close(); await files.writes.catch(() => {});
+        if (closing) return; closing = true; trash.close(); mcp.close(); nativeSettings.close(); await files.writes.catch(() => {});
       watcher?.close(); clearTimeout(restoreTimer); coordinator.close(); clearTimeout(settingsTimer); await saveSettings(); await transcriptSave; await quick.saves; await workspace.writes; await assets.writes.catch(() => {});
       for (const ws of wss.clients) ws.terminate();
       wss.close(); await sessions.close();

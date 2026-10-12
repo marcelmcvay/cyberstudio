@@ -29,6 +29,7 @@ export function Icon({ name, size = 18, style }: { name: string; size?: number; 
     send: 'm4 4 17 8-17 8 4-8ZM8 12h13', pin: 'm8 3 8 0-1 7 4 4H5l4-4ZM12 14v7', more: 'M5 12h.1M12 12h.1M19 12h.1',
     terminal: 'm5 7 5 5-5 5M13 17h6', bell: 'M5 16h14l-2-3V8a5 5 0 0 0-10 0v5ZM10 20h4', refresh: 'M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 13 2M18 18A8 8 0 0 1 5 16',
     history: 'M3 5v5h5M4 9a9 9 0 1 1 0 6M12 7v5l3 2', attach: 'm8 13 7-7a3 3 0 0 1 4 4L9 20a5 5 0 0 1-7-7L13 2M5 15l9-9', clean: 'm9 4 11 11M6 7l11 11-4 4L2 11ZM2 22h20',
+    trash: 'M4 7h16M10 3h4M6 7l1 14h10l1-14M10 11v6M14 11v6',
   }
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={style} aria-hidden="true"><path d={paths[name] || paths.files} /></svg>
 }

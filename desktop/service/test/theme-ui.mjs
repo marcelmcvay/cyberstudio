@@ -1,5 +1,6 @@
 // Isolated application state and browser profiles; no real chats or preferences.
-import { chromium, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { launchTestBrowser, realPageErrors, testPermissions } from '../../../scripts/lib/test-browser.mjs';
 import { mkdtemp, mkdir, writeFile, cp } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +21,7 @@ await writeFile(path.join(repo, 'workspace/workspace.json'), JSON.stringify({ en
 let service, browser;
 try {
   service = await createService({ repo, uiDir: path.join(root, 'dist') });
-  browser = await chromium.launch({ channel: process.env.MRMAK_TEST_BROWSER || 'msedge', headless: true });
+  browser = await launchTestBrowser();
   const context = await browser.newContext({ viewport: { width: 1300, height: 920 }, colorScheme: 'dark' });
   const page = await context.newPage(), second = await context.newPage(), chats = await context.newPage();
   const errors = []; for (const view of [page, second, chats]) { view.setDefaultTimeout(12000); view.on('pageerror', error => errors.push(error.message)); }
@@ -37,7 +38,7 @@ try {
   await page.getByLabel('Workspace theme', { exact: true }).selectOption('light');
   await expect(page.locator('html')).toHaveAttribute('data-workspace-theme', 'light');
   await expect(second.locator('html')).toHaveAttribute('data-workspace-theme', 'light');
-  await expect(second.locator('.content')).toHaveCSS('background-color', 'rgb(247, 248, 250)');
+  await expect(second.locator('.content')).toHaveCSS('background-color', 'rgb(244, 240, 234)');
   await expect(second.locator('.entity-card')).toHaveCSS('background-color', 'rgb(255, 255, 255)');
   await expect(chats.locator('html')).toHaveAttribute('data-workspace-theme', 'dark');
   await expect(report().locator('html')).toHaveAttribute('data-mrmak-theme', 'light');
@@ -55,7 +56,7 @@ try {
   await page.getByRole('button', { name: 'Close settings', exact: true }).click();
   await page.getByRole('tab', { name: 'Notes', exact: true }).click();
   await page.locator('.mak-markdown h1').waitFor();
-  assert.equal(await page.locator('.mak-markdown h1').evaluate(node => getComputedStyle(node).color), 'rgb(17, 21, 33)');
+  assert.equal(await page.locator('.mak-markdown h1').evaluate(node => getComputedStyle(node).color), 'rgb(21, 17, 14)');
   await page.getByRole('button', { name: 'Toggle files', exact: true }).click();
   await page.getByRole('treeitem', { name: /^knowledge$/ }).click();
   await page.getByRole('treeitem', { name: /^notes.md/ }).click();
@@ -76,7 +77,7 @@ try {
   assert.equal(await report().locator('canvas').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(30, 80, 40)');
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-workspace-theme', 'light');
-  assert.deepEqual(errors, []);
+  assert.deepEqual(realPageErrors(errors), []);
   await context.close();
   await service.close();
   service = await createService({ repo, uiDir: path.join(root, 'dist') });

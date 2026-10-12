@@ -35,7 +35,11 @@ tabs with `"viewer": "compare3d"` for side-by-side model comparison, or
 `models` (`path` relative to the manifest, `position` [x, y, z] in meters,
 `rotationY` in degrees, `snap` bottom/top/none) and `cameras` presets
 (`position`, `target`, optional `fov`). Point `path` at the canonical
-`assets/<id>/<id>.glb` so the scene follows cleanups. A project with many cards can add top-level
+`assets/<id>/<id>.glb` so the scene follows cleanups. Both 3D viewers share one
+key map: 1-8 pick shading (Wireframe, Clay, Normals, Textured, Base color,
+Normal map, Roughness, Metalness), Shift+1 to Shift+9 pick the scene3d camera
+presets in manifest order, R resets and Space spins. Put the most useful
+camera first; only the first nine get a key. A project with many cards can add top-level
 `views`, such as `{"id": "models", "label": "3D", "viewer": "compare3d"}` or
 `{"id": "references", "label": "References", "steps": ["References"]}`. Each view
 becomes a menu tab that lists the cards with that tab, opens them on it, dims

@@ -12,7 +12,8 @@
 6. Give each card a small `hero` image and mark 3D tabs `compare3d` (or `scene3d` for a placed multi-GLB scene); projects
    with many cards can add menu `views`. Update the registry's `updated` date
    after meaningful changes. Preserve the original `created` date. Do not mark
-   personal work `sample: true`.
+   personal work `sample: true`. Both 3D viewers use one key map: 1-8 shading,
+   Shift+1 to Shift+9 scene3d cameras in manifest order, R reset, Space spin.
 7. Open every changed tab at wide and narrow widths, test links and media,
    then report the outcome. A built installer is not an installed update.
 

@@ -1,6 +1,6 @@
 // Real renderer + service snapshots, with a deterministic fullscreen CLI fixture.
 // No live chats, agent logins or user settings are changed.
-import { chromium } from '@playwright/test';
+import { launchTestBrowser, realPageErrors, testPermissions, useTestClipboard } from '../../../scripts/lib/test-browser.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -37,8 +37,9 @@ for (const [id, agent, fullscreen] of [['codex', 'codex', false], ['claude-class
 }
 let browser;
 try {
-  browser = await chromium.launch({ headless: true, channel: process.env.MRMAK_TEST_BROWSER || 'msedge' });
-  const context = await browser.newContext({ viewport: { width: 640, height: 800 }, permissions: ['clipboard-read', 'clipboard-write'] });
+  browser = await launchTestBrowser();
+  const context = await browser.newContext({ viewport: { width: 640, height: 800 }, permissions: testPermissions(['clipboard-read', 'clipboard-write']) });
+  await useTestClipboard(context);
   const page = await context.newPage(); page.setDefaultTimeout(6000);
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto(service.urls.chats);
@@ -75,7 +76,7 @@ try {
   assert.equal(writes.get('opencode-fullscreen').some(x => x.includes('\x03')), false);
   await page.keyboard.type('draft');
   assert.ok(writes.get('opencode-fullscreen').join('').includes('draft'));
-  assert.deepEqual(errors, []);
+  assert.deepEqual(realPageErrors(errors), []);
   console.log('Scroll UI passed: Codex/classic history stays local; Claude/OpenCode fullscreen wheel up/down works after initial snapshot, tab return and window reload; copy does not interrupt.');
 } finally {
   await browser?.close();

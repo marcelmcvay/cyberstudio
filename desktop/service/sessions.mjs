@@ -6,9 +6,11 @@ import path from 'node:path';
 import pty from 'node-pty';
 import headless from '@xterm/headless';
 import { TerminalSnapshotAddon } from './terminal-snapshot.mjs';
-import { terminalCommand, childEnvironment } from './agents.mjs';
+import { terminalCommand, childEnvironment, STRIX_FOLDER_LINE } from './agents.mjs';
 import { readJson, saveJson } from './util.mjs';
-import { claudeTranscript, codexTranscript, tailNativeFile } from './native-events.mjs';
+import { claudeTranscript, codexTranscript, tailNativeFile, tailLines } from './native-events.mjs';
+import { writeClaudeHooks, prepareCodexSignals, hookEvent, promptOnScreen, answersPrompt, oscNotifications } from './cli-signals.mjs';
+import { watchStrixTranscript } from './strix-watch.mjs';
 import { findCodexChat } from './codex-history.mjs';
 import { englishTitle, restoredTitle } from './titles.mjs';
 import { defaultWorkerEffort, workerEfforts } from './effort.mjs';
@@ -17,8 +19,8 @@ import { opencodeVersion, opencodeEnvironment, readOpencodeState, watchOpencode 
 
 const { Terminal } = headless;
 const publicSession = session => {
-  const { id, name, agent, cwd, bypass, effort, status, createdAt, lastOutputAt, lastInputAt, exitCode, nativeId, attention, activity, unread, completionVersion, lastCompletedId, cols, rows, open, pinned, tabOrder, tabColor, updatedAt, preview, hasConversation, restoreError } = session;
-  return { id, name, agent, cwd, bypass, effort, status, createdAt, lastOutputAt, lastInputAt, exitCode, nativeId, attention, activity, unread, completionVersion, lastCompletedId, cols, rows, open, pinned, tabOrder, tabColor, updatedAt, preview, hasConversation, restoreError };
+  const { id, name, agent, cwd, bypass, effort, status, createdAt, lastOutputAt, lastInputAt, exitCode, nativeId, attention, activity, unread, completionVersion, lastCompletedId, cols, rows, open, pinned, tabOrder, tabColor, updatedAt, preview, hasConversation, restoreError, connecting, waitingText, remoteCwd, remoteFallback, exitDetail } = session;
+  return { id, name, agent, cwd, bypass, effort, status, createdAt, lastOutputAt, lastInputAt, exitCode, nativeId, attention, activity, unread, completionVersion, lastCompletedId, cols, rows, open, pinned, tabOrder, tabColor, updatedAt, preview, hasConversation, restoreError, connecting, waitingText, remoteCwd, remoteFallback, exitDetail };
 };
 
 // Resolve a typed working folder: expand a leading ~ and explain a missing path.
@@ -33,6 +35,9 @@ export async function workingFolder(input, base, home = os.homedir()) {
   if (!info.isDirectory()) throw Object.assign(new Error(`That path is a file, not a folder: ${cwd}`), { status: 400 });
   return cwd;
 }
+
+// Chats that need the person: blocked on input, or holding an unread result.
+export const needsYou = session => session.open && ((session.status === 'running' && session.activity === 'waiting') || session.unread);
 
 export class Sessions extends EventEmitter {
   constructor(repo, stateDir) {
@@ -49,10 +54,11 @@ export class Sessions extends EventEmitter {
     await mkdir(this.stateDir, { recursive: true });
     const saved = await readJson(path.join(this.stateDir, 'sessions.json'), []);
     for (const [index, metadata] of saved.entries()) {
-      const item = this.make({ ...metadata, name: restoredTitle(metadata.name, index), open: metadata.open ?? metadata.agent !== 'kimi', pinned: !!metadata.pinned, updatedAt: metadata.updatedAt || metadata.lastInputAt || metadata.createdAt, hasConversation: metadata.hasConversation ?? (metadata.agent === 'codex' && !!metadata.nativeId), status: 'stopped', activity: 'idle', attention: !!metadata.unread });
+      const item = this.make({ ...metadata, name: restoredTitle(metadata.name, index), open: metadata.open ?? metadata.agent !== 'kimi', pinned: !!metadata.pinned, updatedAt: metadata.updatedAt || metadata.lastInputAt || metadata.createdAt, hasConversation: metadata.hasConversation ?? (metadata.agent === 'codex' && !!metadata.nativeId), status: 'stopped', activity: 'idle', attention: !!metadata.unread, connecting: false, waitingText: null });
       this.items.set(item.id, item);
       if (item.open) await this.hydrate(item);
     }
+    this.attentionCount = [...this.items.values()].filter(needsYou).length;
     this.timer = setInterval(() => { if (this.dirty) this.persist().catch(error => this.emit('service-error', error)); }, 3000);
     this.timer.unref();
     return this;
@@ -95,6 +101,8 @@ export class Sessions extends EventEmitter {
   changed(session) {
     this.dirty = true;
     this.emit('session', publicSession(session));
+    const count = [...this.items.values()].filter(needsYou).length;
+    if (count !== this.attentionCount) { this.attentionCount = count; this.emit('attention-count', count); }
   }
 
   async create(options) {
@@ -144,8 +152,11 @@ export class Sessions extends EventEmitter {
       if (opencodeMajor === 2) resumeId ||= session.nativeId;
       env = opencodeEnvironment(env, { stateDir: this.stateDir, session, major: opencodeMajor });
     }
+    // Status signals from the CLI itself: Claude Code hooks, Codex notify and OSC 9.
+    const signals = session.agent === 'claude' ? await writeClaudeHooks(this.stateDir, session.id).catch(() => null)
+      : session.agent === 'codex' ? await prepareCodexSignals(this.stateDir, session.id, { env }).catch(() => null) : null;
     if (this.closed || !session.open) throw new Error('The chat was closed before its terminal started.');
-    const command = terminalCommand(session.agent, { bypass: session.bypass, resumeId, nativeId: session.nativeId, effort: session.effort, opencodeMajor, cwd: session.cwd });
+    const command = terminalCommand(session.agent, { bypass: session.bypass, resumeId, nativeId: session.nativeId, effort: session.effort, opencodeMajor, cwd: session.cwd, claudeSettings: signals?.settings, codexArgs: signals?.args });
     if (session.agent === 'codex') env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE = `mrmak_chat_${session.id}`;
     const proc = pty.spawn(command.file, command.args, ptyOptions({ cwd: session.cwd, env, cols: session.cols, rows: session.rows }));
     session.process = proc;
@@ -158,8 +169,15 @@ export class Sessions extends EventEmitter {
     session.restoreError = null;
     session.exitCode = null;
     session.startedAt = Date.now();
+    Object.assign(session, { hooks: false, waitingSource: null, waitingKind: null, waitingText: null, userStopped: false, exitDetail: null, oscCarry: '', connecting: session.agent === 'strix', remoteCwd: null, remoteFallback: false });
     proc.onData(data => {
       session.lastOutputAt = new Date().toISOString();
+      if (session.connecting) { session.connecting = false; this.changed(session); }
+      if (session.agent === 'codex') {
+        const osc = oscNotifications(session.oscCarry, data);
+        session.oscCarry = osc.carry;
+        if (osc.found.length) this.nativeEvent(session, { kind: 'attention', source: 'osc', text: 'The agent is asking for your approval.' });
+      }
       session.terminal.write(data);
       session.pendingOutput += data;
       // Batch bursts for xterm; never let one high-output terminal flood the UI.
@@ -178,13 +196,19 @@ export class Sessions extends EventEmitter {
         try { proc.kill(); } catch { /* Native console already closed. */ }
         proc._agent?._conoutSocketWorker?.dispose();
       }
-      session.stopNativeWatch?.();
-      session.stopNativeWatch = null;
+      this.stopWatchers(session);
       session.status = 'exited';
       session.activity = 'idle';
+      session.connecting = false; session.waitingText = null; session.waitingSource = null;
       session.exitCode = exitCode;
       this.changed(session);
-      this.emit('notice', { id: randomUUID(), sessionId: session.id, name: session.name, kind: 'exit', text: `${session.name} exited (${exitCode}).`, at: new Date().toISOString() });
+      // A close or stop the person asked for is not news (C-29).
+      if (!session.userStopped && !this.closed) this.emit('notice', { id: randomUUID(), sessionId: session.id, name: session.name, kind: 'exit', text: `${session.name} exited (${exitCode}).`, at: new Date().toISOString() });
+      // ssh exits 255 when it cannot reach the host or the link drops (C-04).
+      if (session.agent === 'strix' && exitCode === 255) this.read(session.id, 40).then(({ screen }) => {
+        session.exitDetail = screen.split('\n').map(line => line.trim()).filter(line => line && !STRIX_FOLDER_LINE.test(line)).slice(-3).join('\n') || 'ssh exited with status 255.';
+        this.changed(session);
+      }).catch(() => {});
       if (session.agent === 'codex' && !session.nativeId) this.read(session.id).then(({ screen }) => {
         const match = /codex resume ([a-f0-9-]{36})/i.exec(screen);
         if (match) { session.nativeId = match[1]; this.changed(session); }
@@ -211,6 +235,53 @@ export class Sessions extends EventEmitter {
     else if (session.agent === 'claude' && session.nativeId) claudeTranscript(session.cwd, session.nativeId).then(file => {
       if (session.process === proc) this.watchNative(session, file);
     }).catch(() => {});
+    if (signals?.file) this.watchHooks(session, signals.file);
+    if (session.agent === 'strix' && session.nativeId) {
+      session.stopStrixWatch?.();
+      session.stopStrixWatch = watchStrixTranscript({ cwd: session.cwd, nativeId: session.nativeId, onEvent: event => { if (session.process === proc) this.nativeEvent(session, event); } });
+    }
+  }
+
+  stopWatchers(session) {
+    for (const key of ['stopNativeWatch', 'stopHookWatch', 'stopStrixWatch']) { session[key]?.(); session[key] = null; }
+    clearTimeout(session.screenTimer); session.screenTimer = null;
+  }
+
+  // Hook lines are the primary status source once the CLI has loaded them.
+  watchHooks(session, file) {
+    session.stopHookWatch?.();
+    let index = 0;
+    session.stopHookWatch = tailLines(file, line => {
+      const event = hookEvent(line, index++);
+      if (!event || !session.process) return;
+      session.hooks = true;
+      this.nativeEvent(session, event);
+    });
+  }
+
+  // The trust dialog (before hooks may run), Strix prompts and Codex approvals
+  // are read from the bottom of the live screen after output settles.
+  scheduleScreenCheck(session) {
+    if (!['claude', 'strix', 'codex'].includes(session.agent) || session.screenTimer) return;
+    session.screenTimer = setTimeout(() => { session.screenTimer = null; this.checkScreen(session).catch(() => {}); }, 250);
+    session.screenTimer.unref?.();
+  }
+
+  async checkScreen(session) {
+    if (!session.process || !session.terminal) return;
+    await new Promise(resolve => session.terminal.write('', resolve));
+    const buffer = session.terminal.buffer.active, lines = [];
+    for (let index = buffer.baseY; index < buffer.baseY + session.terminal.rows; index++) lines.push(buffer.getLine(index)?.translateToString(true) || '');
+    if (session.agent === 'strix' && !session.remoteCwd) {
+      const marker = lines.map(line => STRIX_FOLDER_LINE.exec(line)).find(Boolean) || (() => {
+        for (let index = Math.max(0, buffer.length - 400); index < buffer.length; index++) { const match = STRIX_FOLDER_LINE.exec(buffer.getLine(index)?.translateToString(true) || ''); if (match) return match; }
+        return null;
+      })();
+      if (marker) { session.remoteCwd = marker[2]; session.remoteFallback = marker[1] !== 'Strix folder'; this.changed(session); }
+    }
+    const prompt = promptOnScreen(session.agent, lines.map(line => line.trimEnd()).filter(Boolean));
+    if (prompt && session.activity !== 'waiting') this.nativeEvent(session, { kind: 'attention', source: 'screen', prompt: prompt.kind, text: prompt.text });
+    else if (!prompt && session.activity === 'waiting' && session.waitingSource === 'screen') this.nativeEvent(session, { kind: 'turn-ready', source: 'screen', resume: session.waitingKind === 'permission' });
   }
 
   beginDiscovery(session) {
@@ -225,22 +296,44 @@ export class Sessions extends EventEmitter {
     session.stopNativeWatch = tailNativeFile(file, session.agent, event => this.nativeEvent(session, event), offset);
   }
 
+  // Precedence: waiting > working > done (unread) > idle. Sources: 'hook' (CLI
+  // hooks, Codex notify), 'osc' (Codex notifications), 'screen' (prompt on the
+  // live screen) and the native transcript (no source).
   nativeEvent(session, event) {
+    const clearWaiting = () => { session.waitingSource = null; session.waitingKind = null; session.waitingText = null; };
     if (event.kind === 'turn-started') {
+      // A transcript record is not proof that a prompt was answered.
+      if (session.activity === 'waiting' && event.source !== 'hook') return;
       if (session.activity === 'working') return;
-      session.activity = 'working'; session.attention = false;
+      session.activity = 'working'; session.attention = false; clearWaiting();
+    } else if (event.kind === 'turn-ready') {
+      // The CLI is ready (after the trust dialog) or a screen prompt went away.
+      if (session.activity !== 'waiting') return;
+      session.activity = event.resume ? 'working' : 'idle'; session.attention = !!session.unread; clearWaiting();
+      this.changed(session);
+      return;
     } else if (event.kind === 'turn-interrupted') {
-      session.activity = 'idle';
+      session.activity = 'idle'; clearWaiting();
     } else if (event.kind === 'turn-completed') {
       if (event.id && session.lastCompletedId === event.id) return;
+      // With hooks loaded, Stop (or Codex notify) is the completion; the transcript
+      // only supplies the preview text.
+      if (session.hooks && event.source !== 'hook') {
+        if (event.preview && event.preview !== session.preview) { session.preview = event.preview; this.changed(session); }
+        return;
+      }
       session.lastCompletedId = event.id;
-      session.activity = 'idle'; session.unread = true; session.attention = true;
+      session.activity = 'idle'; session.unread = true; session.attention = true; clearWaiting();
       session.completionVersion++;
       if (event.preview) session.preview = event.preview;
     } else if (event.kind === 'attention') {
+      const repeat = session.activity === 'waiting';
       session.activity = 'waiting'; session.attention = true;
+      session.waitingSource = event.source || 'transcript'; session.waitingKind = event.prompt || (event.source === 'hook' || event.source === 'osc' ? 'permission' : null); session.waitingText = event.text || null;
+      if (repeat) { this.changed(session); return; }
     } else return;
-    session.hasConversation = true; session.updatedAt = new Date().toISOString();
+    if (event.prompt !== 'trust') session.hasConversation = true;
+    session.updatedAt = new Date().toISOString();
     this.changed(session);
     if (event.text) this.emit('notice', { id: randomUUID(), sessionId: session.id, name: session.name, kind: event.kind, text: `${session.name}: ${event.text}`, at: new Date().toISOString() });
   }
@@ -284,6 +377,7 @@ export class Sessions extends EventEmitter {
     session.pendingOutput = '';
     session.sequence++;
     this.emit('output', { id: session.id, sequence: session.sequence, data });
+    this.scheduleScreenCheck(session);
     if (session.agent === 'kimi' && !session.nativeId && data.includes('Session:')) this.read(session.id).then(({ screen }) => {
       const match = /Session:\s+(session_[a-f0-9-]{36})/i.exec(screen);
       if (match) { session.nativeId = match[1]; this.changed(session); }
@@ -325,6 +419,13 @@ export class Sessions extends EventEmitter {
       if (submit) setTimeout(() => { if (session.process === target) target.write('\r'); }, 500);
     } else session.process.write(data);
     if (!coordinator && !/^\x1b\[[?>0-9;]*[RcnIO]$/.test(data)) session.attention = false;
+    // Answering a prompt ends "needs you". The trust dialog leads to a ready CLI;
+    // an approved tool keeps working. A later screen check re-detects a new prompt.
+    if (!coordinator && session.activity === 'waiting' && answersPrompt(data)) {
+      session.activity = session.waitingKind === 'trust' || session.waitingSource === 'transcript' ? 'idle' : 'working';
+      session.waitingSource = null; session.waitingKind = null; session.waitingText = null;
+      this.scheduleScreenCheck(session);
+    }
     // Cursor-position and terminal-capability replies are not manual typing.
     if (!coordinator && !/^\x1b\[[?>0-9;]*[RcnIO]$/.test(data)) session.lastInputAt = new Date().toISOString();
     if (data.includes('\r') || submit) {
@@ -397,7 +498,7 @@ export class Sessions extends EventEmitter {
     const file = !resumeId ? null : session.agent === 'codex' ? await codexTranscript(resumeId) : session.agent === 'claude' ? await claudeTranscript(session.cwd, resumeId) : null;
     return file ? { file, offset: (await stat(file).catch(() => null))?.size || 0 } : null;
   }
-  stop(id) { const session = this.get(id); this.requestStop(session); return { stopped: !!session.process }; }
+  stop(id) { const session = this.get(id); if (session.process) session.userStopped = true; this.requestStop(session); return { stopped: !!session.process }; }
   requestStop(session) {
     const proc = session.process;
     if (!proc) return;
@@ -428,7 +529,8 @@ export class Sessions extends EventEmitter {
     if (!nativeId) await this.recoverNative(session);
     let resumeId = nativeId || session.nativeId;
     // A terminal closed before its first prompt may have no native conversation yet.
-    if (session.agent === 'claude' && resumeId && !nativeId && !(await stat(await claudeTranscript(session.cwd, resumeId)).catch(() => null))) resumeId = null;
+    // Nothing to resume (for example, closed at the trust prompt): start fresh under the same ID.
+    if (session.agent === 'claude' && resumeId && !nativeId && !(await stat(await claudeTranscript(session.cwd, resumeId)).catch(() => null))) { resumeId = null; session.hasConversation = false; }
     if (session.agent !== 'shell' && !resumeId && session.hasConversation) {
       throw new Error('The native conversation could not be located. Your last screen is retained; use New chat → Resume to connect its CLI ID.');
     }
@@ -453,6 +555,7 @@ export class Sessions extends EventEmitter {
     session.open = false; session.updatedAt = new Date().toISOString();
     if (session.process && !session.stopping) {
       const proc = session.process;
+      session.userStopped = true;
       session.stopping = new Promise((resolve, reject) => {
         const timeout = setTimeout(() => { subscription.dispose(); reject(new Error('The terminal is still closing. Try reopening it in a moment.')); }, 8000);
         const subscription = proc.onExit(() => { clearTimeout(timeout); subscription.dispose(); resolve(); });
@@ -486,7 +589,7 @@ export class Sessions extends EventEmitter {
       const subscription = proc.onExit(() => { clearTimeout(timer); subscription.dispose(); resolve(); });
       try { this.requestStop(session); } catch { clearTimeout(timer); subscription.dispose(); resolve(); }
     })));
-    for (const session of this.items.values()) { session.stopNativeWatch?.(); session.process?.kill(); this.flushOutput(session); }
+    for (const session of this.items.values()) { this.stopWatchers(session); session.process?.kill(); this.flushOutput(session); }
     await this.persist();
     for (const session of this.items.values()) session.terminal?.dispose();
   }

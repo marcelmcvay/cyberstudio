@@ -146,3 +146,29 @@
 .switcher-list>button.highlighted,.history-item.highlighted{background:#eba8a10f;box-shadow:inset 2px 0 0 #dfa29b}
 .stopped-dot{width:5px;height:5px;border-radius:50%;background:#8f847d}
 .history-filters{flex-wrap:wrap}
+
+/* Agent status (C-15, C-29, C-04, C-28): one shape per state plus a text badge
+   when the strip is wide; "Needs you" filter; Strix connect and failure details. */
+.session-logo.state-stopped>.agent-logo{opacity:.4;filter:grayscale(1)}
+.session-logo.state-working>.agent-logo,.session-logo.state-connecting>.agent-logo{animation:none;filter:none}
+.session-logo.is-working:before{display:none}
+.session-spinner{position:absolute;inset:-4px;border-radius:50%;border:1.5px solid transparent;border-top-color:currentColor;border-right-color:currentColor;opacity:.85;animation:session-spin 1s linear infinite;pointer-events:none}
+.state-connecting .session-spinner,.state-starting .session-spinner{border-right-color:transparent;opacity:.55;animation-duration:1.6s}
+@keyframes session-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.session-spinner{animation:none;border-style:dotted;border-color:currentColor}}
+.session-waiting{right:-6px;top:-6px;width:13px;height:13px;font:800 10px/1 sans-serif;color:#1a1410;background:#f2c063;box-shadow:0 0 0 2px #12100f}
+.session-unread{width:8px;height:8px;right:-4px;top:-3px}
+.chat-tabs{container-type:inline-size}
+.chat-tab-badge{flex-shrink:0;margin-left:6px;padding:1px 5px;border-radius:3px;border:1px solid #ffffff1c;font-size:9px;line-height:13px;letter-spacing:.02em;color:#b9aea7;white-space:nowrap}
+.chat-tab-badge.badge-waiting{border-color:#f2c06380;color:#f6d08a;font-weight:600}
+.chat-tab-badge.badge-unread{border-color:#ff8c9a66;color:#ffb3bc}
+.chat-tab-badge.badge-stopped{border-style:dashed;color:#978b84}
+@container (max-width:720px){.chat-tab-badge{display:none}}
+.chat-tab.tab-stopped .chat-tab-name{opacity:.7}
+.needs-you-button{display:flex;align-items:center;gap:6px;margin-right:4px;border:1px solid #f2c06355;background:#f2c06312;border-radius:6px;padding:5px 8px;color:#f3d39a!important;font-size:10px!important;flex-shrink:0}
+.needs-you-button b{min-width:15px;padding:0 4px;border-radius:8px;background:#f2c063;color:#1a1410;font-size:9px;line-height:15px;text-align:center}
+.needs-you-button:hover{background:#f2c06322}.needs-you-button.active{background:#f2c06330;border-color:#f2c063}
+.connecting-dot{width:5px;height:5px;border-radius:50%;background:#deba7e;animation:voice-dot .8s ease-in-out infinite alternate}
+.chat-folder.remote-fallback{color:#e6c07f}
+.reconnect-details{margin-top:4px;color:#978b84}.reconnect-details summary{cursor:pointer;width:max-content}
+.reconnect-details code{display:block;margin-top:4px;white-space:pre-wrap;word-break:break-word;font-family:var(--font-mono);font-size:9px;color:#b4a79f}

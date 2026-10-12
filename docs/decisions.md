@@ -2,6 +2,10 @@
 
 Newest first. Date, decision, who decided, why.
 
+## 2026-10-12
+
+- **Machines with moving parts are built in Blender, not split from a generated mesh.** Marcel. Tripo's part segmentation (segment v2, balanced) was tested on two machine meshes. It splits by shape, not by motion: one moving part came out as a usable body, the other broke into seven, and every part was an open shell with no pivot. The `segment` command stays in the Tripo client for inspection.
+
 ## 2026-10-11
 
 - **No `cyberstudio-3d` branch.** Marcel. The brief never defined it, and the kit is 3D-first today, so 3D tooling stays on `main`. Revisit a profile split when the FUI profile arrives.

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // CyberStudio doctor. One line per check. Exit 1 if anything is red.
 // Built-ins only. Never prints secret values.
-import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { KIT_ROOT, loadEnv, parseEnv, projectRoot, envFiles } from './lib/env.mjs';
+import { spawnTool } from './lib/spawn.mjs';
 import { monthToDate } from './ledger.mjs';
 
 loadEnv();
@@ -32,7 +32,7 @@ function heading(title) {
 }
 
 function run(cmd, args = [], { timeout = 5000, cwd = KIT_ROOT } = {}) {
-  const r = spawnSync(cmd, args, { encoding: 'utf8', timeout, cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+  const r = spawnTool(cmd, args, { encoding: 'utf8', timeout, cwd, stdio: ['ignore', 'pipe', 'pipe'] });
   const out = `${r.stdout || ''}${r.stderr || ''}`.trim();
   return {
     ok: !r.error && r.status === 0,

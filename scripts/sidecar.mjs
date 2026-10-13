@@ -11,12 +11,12 @@
 // Ownership: people own title, status, superseded_by, tags, cards (merged),
 // ledger_ids, review, provenance.origin/inputs/link/imported_from and
 // mesh.real_scale/origin/engine_ready. Everything else is recomputed.
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { closeSync, createReadStream, existsSync, openSync, readFileSync, readSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { homedir } from 'node:os';
 import { KIT_ROOT, loadEnv, projectRoot } from './lib/env.mjs';
+import { spawnTool } from './lib/spawn.mjs';
 import { readRows } from './ledger.mjs';
 
 const SCHEMA_PATH = join(KIT_ROOT, 'schemas', 'asset-v1.json');
@@ -118,7 +118,7 @@ function imageInfo(file) {
 // ---------------------------------------------------------------- gltf-transform
 
 function gt(args) {
-  const r = spawnSync('gltf-transform', args, { encoding: 'utf8', timeout: 180000, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, NO_COLOR: '1' } });
+  const r = spawnTool('gltf-transform', args, { encoding: 'utf8', timeout: 180000, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, NO_COLOR: '1' } });
   if (r.error) throw new Error(r.error.code === 'ENOENT' ? 'gltf-transform not found on PATH' : r.error.message);
   return `${r.stdout || ''}${r.stderr || ''}`;
 }

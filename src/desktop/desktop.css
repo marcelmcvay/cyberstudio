@@ -292,3 +292,9 @@ html[data-workspace-theme=light] .file-trash{color:var(--pink)}
 .chat-status>span:first-child{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:560px){.chat-status>.status-shortcut:last-child{display:none}}
 .voice-dock.chats .voice-controls .voice-nose.voice-mic>.voice-mic-label{max-width:none;opacity:1;margin:0;padding:0;background:none;box-shadow:none}
+
+
+/* On wide screens project navigation reserves space beside the document. */
+@media (min-width:1000px) {
+  .workspace-root .app-layout.has-project-nav > .sidebar { position:relative; box-shadow:none; }
+}

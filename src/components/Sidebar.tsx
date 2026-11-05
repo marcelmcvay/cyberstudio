@@ -1,11 +1,12 @@
 import type { RefObject } from 'react'
-import type { WorkspaceEntity, WorkspaceView } from '../types'
-import { entityHash } from '../lib/route'
+import type { WorkspaceEntity, WorkspaceView, WorkspaceNavigation } from '../types'
+import { entityHash, resolveStep } from '../lib/route'
 import { categoryIcon } from '../lib/categories'
 import { contentUrl } from '../desktop/client'
 import MakLogo from './MakLogo'
 import MakText from './MakText'
 import { reviewLabel, useReviewCount } from '../lib/reviewCounts'
+import { matchesViewStep, viewStep } from '../lib/views'
 import './views.css'
 
 /** One card in a review view. step -1 means it does not have the view's tab yet. */
@@ -19,6 +20,9 @@ interface SidebarProps {
   pinned: WorkspaceEntity[]
   grouped: Map<string, WorkspaceEntity[]>
   activeId: string | null
+  activeStep: number
+  entities: WorkspaceEntity[]
+  navigation?: WorkspaceNavigation
   query: string
   onQuery: (q: string) => void
   searchRef: RefObject<HTMLInputElement | null>
@@ -34,6 +38,8 @@ interface SidebarProps {
   onView: (id: string | null) => void
   viewCounts: Record<string, number>
   viewRows: Map<string, ViewRow[]> | null
+  /** Cards a view or project link may open: search matches, minus hand-archived cards. */
+  reachable: WorkspaceEntity[]
   onOpenRow: (entity: WorkspaceEntity) => void
 }
 
@@ -85,6 +91,9 @@ export default function Sidebar({
   pinned,
   grouped,
   activeId,
+  activeStep,
+  entities,
+  navigation,
   query,
   onQuery,
   searchRef,
@@ -100,9 +109,33 @@ export default function Sidebar({
   onView,
   viewCounts,
   viewRows,
+  reachable,
   onOpenRow,
 }: SidebarProps) {
-  const empty = viewRows ? viewRows.size === 0 : pinned.length === 0 && grouped.size === 0
+  // The home gallery tracks unfinished work too. The tray only offers cards
+  // that can actually open the selected view.
+  const menuRows = viewRows && new Map([...viewRows].flatMap(([category, rows]) => {
+    const ready = rows.filter(row => row.step >= 0)
+    return ready.length ? [[category, ready] as const] : []
+  }))
+  // Project links stay up when their card ages out of the default list.
+  const available = new Set(menuRows
+    ? [...menuRows.values()].flatMap(rows => rows.map(row => row.entity.id))
+    : [...pinned, ...[...grouped.values()].flat(), ...reachable].map(e => e.id))
+  const view = views.find(v => v.id === viewId)
+  const navigationGroups = navigation?.groups.flatMap(group => {
+    const links = group.links.flatMap(link => {
+      const destination = entities.find(e => e.id === link.entity)
+      if (!destination || destination.status === 'archived' || !available.has(destination.id)) return []
+      const index = link.step === undefined
+        ? view ? viewStep(destination, view) : resolveStep(destination.steps.length, -1, destination.defaultStep)
+        : destination.steps.findIndex(s => s.name === link.step)
+      if (index < 0 || (view && !matchesViewStep(destination.steps[index], view))) return []
+      return [{ ...link, index }]
+    })
+    return links.length ? [{ ...group, links }] : []
+  }) ?? []
+  const empty = menuRows ? available.size === 0 : pinned.length === 0 && grouped.size === 0 && navigationGroups.length === 0
 
   return (
     <aside className="sidebar">
@@ -149,7 +182,7 @@ export default function Sidebar({
       {views.length > 0 && (
         <div className="sidebar-views" role="group" aria-label="Menu view">
           <button className={viewId ? '' : 'on'} aria-pressed={!viewId} onClick={() => onView(null)}>
-            Areas
+            All areas
           </button>
           {views.map(v => (
             <button key={v.id} className={viewId === v.id ? 'on' : ''} aria-pressed={viewId === v.id} onClick={() => onView(v.id)}>
@@ -160,12 +193,29 @@ export default function Sidebar({
         </div>
       )}
 
-      <nav className="sidebar-list">
-        {viewRows && [...viewRows.entries()].map(([cat, rows]) => (
+      <div className="sidebar-list">
+        {navigation && navigationGroups.length > 0 && (
+          <nav className="project-navigation" aria-label={navigation.label}>
+            <h2 className="project-navigation-title">{navigation.label}</h2>
+            {navigationGroups.map(group => (
+              <div key={group.label}>
+                <div className="sidebar-section"><span className="sidebar-label">{group.label}</span></div>
+                {group.links.map(link => {
+                  const active = activeId === link.entity && activeStep === link.index
+                  return <a key={`${link.entity}/${link.step ?? ''}`} href={entityHash(link.entity, link.index)}
+                    className={`sidebar-item project-navigation-link${active ? ' active' : ''}`}
+                    aria-current={active ? 'page' : undefined}>{link.label}</a>
+                })}
+              </div>
+            ))}
+          </nav>
+        )}
+        <nav aria-label="Workspace cards">
+        {menuRows && [...menuRows.entries()].map(([cat, rows]) => (
           <div key={cat}>
             <div className="sidebar-section">
               <span className="sidebar-label">{cat.replace(/-/g, ' ')}</span>
-              <span className="sidebar-count">{rows.filter(r => r.step >= 0).length} / {rows.length}</span>
+              <span className="sidebar-count">{rows.length}</span>
             </div>
             {rows.map(r => (
               <ViewItem key={r.entity.id} row={r} active={r.entity.id === activeId} onOpen={onOpenRow} />
@@ -196,7 +246,11 @@ export default function Sidebar({
           </div>
         ))}
 
-        {empty && <div className="sidebar-empty">Nothing matches, sir.</div>}
+        {empty && <div className="sidebar-empty">
+          <p>{query.trim() ? 'No matches' : 'No cards'}{view ? ` in ${view.label}` : ''}{query.trim() ? ` for “${query.trim()}”` : ''}.</p>
+          {query.trim() && <button className="sidebar-archive-toggle" onClick={() => onQuery('')}>Clear search</button>}
+          {view && <button className="sidebar-archive-toggle" onClick={() => onView(null)}>Show all areas</button>}
+        </div>}
 
         {!viewRows && archivedCount > 0 && !query && (
           <button className="sidebar-archive-toggle" onClick={onToggleArchived}>
@@ -205,7 +259,8 @@ export default function Sidebar({
               : `▶ Show archive (${archivedCount})`}
           </button>
         )}
-      </nav>
+        </nav>
+      </div>
 
       <footer className="sidebar-foot">
         <span className={`sync-dot${offline ? ' offline' : ''}`} />

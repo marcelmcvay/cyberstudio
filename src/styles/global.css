@@ -1254,3 +1254,10 @@ html[data-workspace-theme=light] .content { background-image: none; }
   background: var(--green-dim);
   color: var(--green);
 }
+
+
+/* Optional project destinations sit above the complete card list. */
+.project-navigation { border-bottom: 1px solid var(--hairline); padding-bottom: 14px; }
+.project-navigation-title { margin: 8px 6px 0; font-size: .88rem; color: var(--text-bright); }
+.project-navigation-link { padding: 7px 10px; }
+.project-navigation-link:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }

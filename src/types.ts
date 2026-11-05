@@ -34,9 +34,9 @@ export interface WorkspaceEntity {
 }
 
 /**
- * A review view in the menu: every card with a matching tab, opened straight on
- * that tab, next to the cards that do not have it yet in any category that takes
- * part in a view.
+ * A review view opens cards straight on a matching tab. The menu offers only
+ * matching destinations; the home gallery also tracks cards still missing the
+ * tab in categories that take part in a view.
  */
 export interface WorkspaceView {
   id: string
@@ -47,10 +47,23 @@ export interface WorkspaceView {
   viewer?: WorkspaceStep['viewer']
 }
 
+/** Project-owned destinations. Tab names remain stable when tabs are reordered. */
+export interface WorkspaceNavigation {
+  /** Scopes the reader's menu preference to this project. */
+  id: string
+  label: string
+  groups: {
+    label: string
+    links: { label: string; entity: string; step?: string }[]
+  }[]
+}
+
 export interface WorkspaceState {
   entities: WorkspaceEntity[]
   /** Extra menu views next to the default grouping by category. */
   views?: WorkspaceView[]
+  /** Optional quick links above the ordinary card list. */
+  navigation?: WorkspaceNavigation
 }
 
 /* ─── 3D comparison steps ─────────────────────────────────────────────────

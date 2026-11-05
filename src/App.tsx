@@ -29,19 +29,31 @@ export default function App() {
   const [route, setRoute] = useState<Route>(parseHash)
   const [query, setQuery] = useState('')
   const [showArchived, setShowArchived] = useState(false)
-  // A review view (References, 3D, …) keeps the menu open: it is the way you
-  // step from card to card. The default grouping folds away on desktop as before.
+  // Review views and project quick links keep the menu available between cards.
   const [viewId, setViewId] = useState<string | null>(() => localStorage.getItem('mak.view'))
   const viewRef = useRef(viewId)
   const [collapsed, setCollapsed] = useState(
     () => (isDesktop && !localStorage.getItem('mak.view')) || localStorage.getItem('mak.sidebarCollapsed') === '1',
   )
+  const projectMenu = useRef<string | null>(null)
+  const navigation = workspace?.navigation
+  const hasNavigation = useRef(false)
   const [, setSeenTick] = useState(0)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    localStorage.setItem('mak.sidebarCollapsed', collapsed ? '1' : '0')
+    const key = projectMenu.current ? `mak.sidebarCollapsed:${projectMenu.current}` : 'mak.sidebarCollapsed'
+    localStorage.setItem(key, collapsed ? '1' : '0')
   }, [collapsed])
+
+  useEffect(() => {
+    hasNavigation.current = !!navigation
+    if (!navigation || projectMenu.current === navigation.id) return
+    projectMenu.current = navigation.id
+    const preference = localStorage.getItem(`mak.sidebarCollapsed:${navigation.id}`)
+    // First visit opens the project menu on a wide screen. Explicit hides persist.
+    setCollapsed(preference ? preference === '1' : window.innerWidth < 1000)
+  }, [navigation])
 
   const chooseView = useCallback((id: string | null) => {
     viewRef.current = id
@@ -72,7 +84,10 @@ export default function App() {
 
   // Hash → state: entity links navigate natively; this also covers back/forward.
   useEffect(() => {
-    const onHash = () => { setRoute(parseHash()); if (isDesktop && !viewRef.current) setCollapsed(true) }
+    const onHash = () => {
+      setRoute(parseHash())
+      if (isDesktop && !viewRef.current && (!hasNavigation.current || window.innerWidth < 1000)) setCollapsed(true)
+    }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
@@ -182,11 +197,14 @@ export default function App() {
     seen = new Set(entities.filter(e => viewStep(e, view) >= 0).map(signature))
     saveSeen(view.id, seen)
   }
+  // Views and project links reach the whole project. The 7-day rule only folds the
+  // default card list; a card leaves a view only when it is archived by hand.
+  const reachable = entities.filter(e => matchesQuery(e) && e.status !== 'archived')
   const viewCounts: Record<string, number> = {}
-  for (const v of views) viewCounts[v.id] = visible.filter(e => !isArchived(e) && viewStep(e, v) >= 0).length
+  for (const v of views) viewCounts[v.id] = reachable.filter(e => viewStep(e, v) >= 0).length
   let viewRows: Map<string, ViewRow[]> | null = null
   if (view) {
-    const pool = visible.filter(e => !isArchived(e)).sort(byFreshness)
+    const pool = [...reachable].sort(byFreshness)
     const cats = new Set(pool.filter(e => views.some(v => viewStep(e, v) >= 0)).map(e => e.category || 'other'))
     viewRows = new Map()
     for (const e of pool) {
@@ -203,11 +221,14 @@ export default function App() {
   }
 
   return (
-    <div className={`app-layout${collapsed ? ' sidebar-collapsed' : ''}`} data-entity={route.id}>
+    <div className={`app-layout${collapsed ? ' sidebar-collapsed' : ''}${navigation ? ' has-project-nav' : ''}`} data-entity={route.id}>
       <Sidebar
         pinned={pinned}
         grouped={grouped}
         activeId={route.id}
+        activeStep={stepIndex}
+        entities={entities}
+        navigation={navigation}
         query={query}
         onQuery={setQuery}
         searchRef={searchRef}
@@ -223,6 +244,7 @@ export default function App() {
         onView={chooseView}
         viewCounts={viewCounts}
         viewRows={viewRows}
+        reachable={reachable}
         onOpenRow={markSeen}
       />
 

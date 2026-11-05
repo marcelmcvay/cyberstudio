@@ -1,10 +1,13 @@
-import type { WorkspaceEntity, WorkspaceView } from '../types'
+import type { WorkspaceEntity, WorkspaceStep, WorkspaceView } from '../types'
+
+/** A destination tab belongs to a view by name or viewer. */
+export function matchesViewStep(step: WorkspaceStep, view: WorkspaceView): boolean {
+  return (view.steps?.includes(step.name) ?? false) || (view.viewer !== undefined && step.viewer === view.viewer)
+}
 
 /** Index of the entity's first tab that belongs to the view, or -1. */
 export function viewStep(entity: WorkspaceEntity, view: WorkspaceView): number {
-  return entity.steps.findIndex(
-    s => (view.steps?.includes(s.name) ?? false) || (view.viewer !== undefined && s.viewer === view.viewer),
-  )
+  return entity.steps.findIndex(s => matchesViewStep(s, view))
 }
 
 // Arrivals. A card counts as new in a view until it is opened from there, and

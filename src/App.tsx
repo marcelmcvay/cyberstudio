@@ -182,11 +182,14 @@ export default function App() {
     seen = new Set(entities.filter(e => viewStep(e, view) >= 0).map(signature))
     saveSeen(view.id, seen)
   }
+  // Views reach the whole project. The 7-day rule only folds the default card list;
+  // a card leaves a view only when it is archived by hand.
+  const reachable = entities.filter(e => matchesQuery(e) && e.status !== 'archived')
   const viewCounts: Record<string, number> = {}
-  for (const v of views) viewCounts[v.id] = visible.filter(e => !isArchived(e) && viewStep(e, v) >= 0).length
+  for (const v of views) viewCounts[v.id] = reachable.filter(e => viewStep(e, v) >= 0).length
   let viewRows: Map<string, ViewRow[]> | null = null
   if (view) {
-    const pool = visible.filter(e => !isArchived(e)).sort(byFreshness)
+    const pool = [...reachable].sort(byFreshness)
     const cats = new Set(pool.filter(e => views.some(v => viewStep(e, v) >= 0)).map(e => e.category || 'other'))
     viewRows = new Map()
     for (const e of pool) {

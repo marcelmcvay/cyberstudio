@@ -742,7 +742,20 @@ export class ModelViewer {
     this.raf = requestAnimationFrame(this.tick)
     this.stepFlight()
     this.controls.update()
+    this.fitNear()
     this.renderer.render(this.scene, this.camera)
+  }
+
+  /** Depth precision follows the orbit distance. A fixed 1 cm near plane against a
+   *  500 m far plane leaves about 12 cm of depth resolution at hall scale, so parts a
+   *  few millimetres apart z-fight. Near at 1 % of the distance keeps it under 1 mm
+   *  at the target, and never goes below the old 1 cm close up. */
+  private fitNear(): void {
+    const near = Math.max(0.01, this.camera.position.distanceTo(this.controls.target) / 100)
+    if (Math.abs(near - this.camera.near) > this.camera.near * 0.05) {
+      this.camera.near = near
+      this.camera.updateProjectionMatrix()
+    }
   }
 
   dispose(): void {

@@ -106,13 +106,21 @@ export class Files {
     return operation;
   }
   async content(request, response, url) {
+    const { file, info } = await this.resolveContentUrl(url);
+    const serve = /\.html?$/i.test(file) ? serveReport : serveFile;
+    await serve(request, response, file, info, { 'Referrer-Policy': 'no-referrer', 'Access-Control-Allow-Origin': this.uiOrigin, 'Cross-Origin-Resource-Policy': 'cross-origin' });
+  }
+  async resolveContentUrl(value) {
+    let url;
+    try { url = new URL(value); } catch { throw Object.assign(new Error('Invalid file link'), { status: 400 }); }
+    if (url.origin !== this.origin || url.username || url.password) throw Object.assign(new Error('This is not a local Workspace file link'), { status: 403 });
     const match = /^\/view\/([\w-]+)\/(.*)$/.exec(url.pathname);
     if (!match || !this.grants.has(match[1])) throw Object.assign(new Error('Preview not found'), { status: 404 });
-    const relative = decodeURIComponent(match[2]);
+    let relative;
+    try { relative = decodeURIComponent(match[2]); } catch { throw Object.assign(new Error('Invalid file link encoding'), { status: 400 }); }
     if (relative.split(/[\\/]/).some(secretPart)) throw Object.assign(new Error('Private application files cannot be loaded by reports'), { status: 403 });
     const { file, info } = await realFile(this.grants.get(match[1]), relative);
     if (!info.isFile()) throw Object.assign(new Error('File not found'), { status: 404 });
-    const serve = /\.html?$/i.test(file) ? serveReport : serveFile;
-    await serve(request, response, file, info, { 'Referrer-Policy': 'no-referrer', 'Access-Control-Allow-Origin': this.uiOrigin, 'Cross-Origin-Resource-Policy': 'cross-origin' });
+    return { file, info };
   }
 }

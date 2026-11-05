@@ -2,6 +2,7 @@ import {createReadStream} from 'node:fs';
 import {Transform} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
 import {reportThemeCSS} from './report-theme.mjs';
+import {installFileActions} from './report-file-actions.mjs';
 
 // Shared browser chrome and external-link routing. The selected reader theme
 // applies to standard reports; custom designs and artwork keep their colours.
@@ -16,6 +17,7 @@ html,body,body *{scrollbar-color:#514c59 #111217!important;scrollbar-width:thin}
 ${reportThemeCSS}
 </style><script data-mrmak-links>
 (() => {
+  (${installFileActions.toString()})(window, { bridgeOrigin: ${trustedOrigin} });
   const setTheme = theme => { if (theme === 'dark' || theme === 'light') document.documentElement.dataset.mrmakTheme = theme; };
   setTheme('${theme}');
   window.addEventListener('message', event => {

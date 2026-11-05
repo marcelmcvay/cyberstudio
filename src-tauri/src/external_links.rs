@@ -42,6 +42,7 @@ fn open_browser(url: &tauri::Url) -> Result<(), String> {
 
 pub fn reveal_path(path: &str) -> Result<(), String> {
     use std::path::Path;
+    #[cfg(not(target_os = "macos"))]
     use std::process::Command;
     let target = Path::new(path);
     #[cfg(windows)]
@@ -50,7 +51,12 @@ pub fn reveal_path(path: &str) -> Result<(), String> {
         if target.is_dir() { command.arg(target); } else { command.arg(format!("/select,{}", target.display())); }
         command.spawn().map(|_| ()).map_err(|error| format!("Could not open Explorer: {error}"))
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        let status = finder_command(target).status().map_err(|error| format!("Could not start Finder: {error}"))?;
+        if status.success() { Ok(()) } else { Err("Finder could not reveal this file.".into()) }
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let folder = if target.is_dir() { target } else { target.parent().unwrap_or(target) };
         let program = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
@@ -58,9 +64,24 @@ pub fn reveal_path(path: &str) -> Result<(), String> {
     }
 }
 
+#[cfg(target_os = "macos")]
+fn finder_command(target: &std::path::Path) -> std::process::Command {
+    let mut command = std::process::Command::new("open");
+    if !target.is_dir() { command.arg("-R"); }
+    command.arg(target);
+    command
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn finder_selects_the_exact_file_as_one_argument() {
+        let command = finder_command(std::path::Path::new("/tmp/a space/diagram #1.png"));
+        assert_eq!(command.get_args().collect::<Vec<_>>(), vec!["-R", "/tmp/a space/diagram #1.png"]);
+    }
 
     #[test]
     fn accepts_web_links_without_rewriting_query_or_fragment() {

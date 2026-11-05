@@ -1,8 +1,19 @@
-export async function downloadImage(url: string, name?: string) {
-  const response = await fetch(url)
-  if (!response.ok) throw new Error(`Image download failed (${response.status}).`)
-  const blob = await response.blob(), objectUrl = URL.createObjectURL(blob)
-  const link = document.createElement('a'); link.href = objectUrl
-  link.download = name || decodeURIComponent(new URL(url, location.href).pathname.split('/').pop() || 'image')
-  link.click(); setTimeout(() => URL.revokeObjectURL(objectUrl), 30000)
+import { installFileActions } from '../../desktop/service/report-file-actions.mjs'
+import { api, desktopState, isDesktop } from '../desktop/client'
+
+export async function localFileAction(url: string, action: string): Promise<unknown> {
+  const base = desktopState().contentBase
+  if (!isDesktop || !base || !['http:', 'https:'].includes(new URL(url).protocol) || new URL(url).origin !== new URL(base).origin) {
+    if (action === 'inspect') return null
+    throw new Error('This is not a local Workspace file.')
+  }
+  return api('/files/action', { url, action })
+}
+
+export function workspaceFileActions() {
+  return installFileActions(window, { local: localFileAction })
+}
+
+export function downloadImage(url: string, name?: string, trigger?: Element | null) {
+  return workspaceFileActions().request(url, name, trigger)
 }

@@ -4,6 +4,7 @@ use std::{fs, io::{BufRead, BufReader, Write}, path::PathBuf, process::{Child, C
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem}, tray::{TrayIconBuilder, TrayIconEvent, MouseButton, MouseButtonState}};
 use tauri_plugin_window_state::StateFlags;
 mod external_links;
+mod file_actions;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 #[cfg(windows)]
@@ -409,6 +410,7 @@ fn main() {
                             }
                         },
                         "ready" => {
+                            send_service(&app_handle, &serde_json::json!({ "type": "file-actions-available" }));
                             let handle = app_handle.clone();
                             let workspace = event["workspace"].as_str().unwrap_or("").to_owned();
                             let chats = event["chats"].as_str().unwrap_or("").to_owned();
@@ -484,7 +486,27 @@ fn main() {
                             }
                         },
                         "quit-check" => answer_quit(&app_handle, &event),
-                        "reveal" => { if let Some(file) = event["path"].as_str() { let _ = external_links::reveal_path(file); } },
+                        "reveal" | "save-copy" => {
+                            if let Some(file) = event["path"].as_str() {
+                                let file = file.to_owned();
+                                let request_id = event["requestId"].as_str().map(str::to_owned);
+                                let save = event["type"] == "save-copy";
+                                let handle = app_handle.clone();
+                                std::thread::spawn(move || {
+                                    let result = if save {
+                                        handle.get_webview_window("workspace").ok_or("Workspace window is unavailable.".to_owned())
+                                            .and_then(|window| file_actions::save_copy(&window, &file))
+                                    } else { external_links::reveal_path(&file).map(|_| true) };
+                                    if let Some(request_id) = request_id {
+                                        let detail = match result {
+                                            Ok(done) => serde_json::json!({ "type": "file-action-result", "requestId": request_id, "cancelled": !done }),
+                                            Err(error) => serde_json::json!({ "type": "file-action-result", "requestId": request_id, "error": error }),
+                                        };
+                                        send_service(&handle, &detail);
+                                    }
+                                });
+                            }
+                        },
                         _ => {}
                     }
                 }

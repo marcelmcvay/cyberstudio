@@ -25,6 +25,8 @@ import { ProjectAdapterRegistry } from './project-adapters/registry.mjs';
 import { KnowledgeManager, MarkdownKnowledgeProvider } from './knowledge/providers.mjs';
 import { IntegrationManager } from './integrations/manager.mjs';
 import { Assets } from './assets.mjs';
+import { FileActions } from './file-actions.mjs';
+import { ReviewSubmissions } from './review-submissions.mjs';
 
 const listen = server => new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${server.address().port}`)); });
 
@@ -32,6 +34,7 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
   repo = await realpath(repo);
   stateDir ||= path.join(repo, '.mrmak');
   const files = new Files(repo);
+  const fileActions = new FileActions(files, native);
   const trash = new TrashStage(repo, { native });
   trash.sweep().catch(() => {});
   const attachments = new Attachments(repo);
@@ -66,6 +69,7 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
   const show = (window, extra = {}) => { native({ type: 'window', action: 'show', window }); broadcast('navigate', { window, ...extra }); };
   const focus = id => { sessions.get(id); selectedId = id; settings.selectedId = id; scheduleSettings(); show('chats', { sessionId: id }); return { selectedId: id }; };
   const registry = async () => readJson(path.join(repo, 'workspace', 'workspace.json'), { entities: [] });
+  const reviews = new ReviewSubmissions({ repo, files, registry });
   const workspace = new Workspace(repo, () => broadcast('workspace-changed', {}));
   const history = query => sessions.list().filter(item => !query || `${item.name} ${item.agent} ${item.cwd} ${item.preview || ''}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => Number(b.pinned) - Number(a.pinned) || String(b.updatedAt).localeCompare(String(a.updatedAt)));
   const closeChat = async id => {
@@ -349,6 +353,9 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
           const file = await realpath(path.resolve(data.path));
           native({ type: 'reveal', path: file }); return json(response, 200, { requested: true });
         }
+        if (method === 'POST' && url.pathname === '/api/files/action') return json(response, 200, await fileActions.request(data));
+        if (method === 'POST' && url.pathname === '/api/reviews/describe') return json(response, 200, await reviews.describe(data));
+        if (method === 'POST' && url.pathname === '/api/reviews/submit') return json(response, 201, await reviews.submit(data));
         if (method === 'POST' && url.pathname === '/api/coordinator') return json(response, 200, await askMak(data));
         if (method === 'POST' && url.pathname === '/api/coordinator/prepare') { await coordinator.start(); return json(response, 200, { ready: true, model: coordinator.model }); }
         if (method === 'POST' && url.pathname === '/api/live/transcript') {
@@ -438,9 +445,10 @@ export async function createService({ repo, uiDir, stateDir, token = secret(), n
         // Quit (menu, Cmd+Q or tray) asks first which chats would stop mid-work (C-07).
         if (event?.type === 'quit-check') { sessions.busyChats().catch(() => []).then(chats => native({ type: 'quit-check', requestId: event.requestId, chats })); return; }
         nativeSettings.receive(event);
+        fileActions.receive(event);
       },
       async close() {
-        if (closing) return; closing = true; trash.close(); mcp.close(); nativeSettings.close(); await files.writes.catch(() => {});
+        if (closing) return; closing = true; trash.close(); mcp.close(); nativeSettings.close(); fileActions.close(); await files.writes.catch(() => {});
       watcher?.close(); clearTimeout(restoreTimer); coordinator.close(); clearTimeout(settingsTimer); await saveSettings(); await transcriptSave; await quick.saves; await workspace.writes; await assets.writes.catch(() => {});
       for (const ws of wss.clients) ws.terminate();
       wss.close(); await sessions.close();
